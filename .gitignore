@@ -1,0 +1,25 @@
+# Laravel environment files
+#.env
+#.env.*.php
+
+# Laravel vendor folder (dependencies)
+/vendor
+
+# Laravel node modules
+/node_modules
+
+# Laravel storage logs and cache
+/storage/*.key
+/storage/*.log
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+
+# IDE files
+/.idea
+*.sublime-workspace
+*.vscode
+
+# OS files
+.DS_Store
+Thumbs.db

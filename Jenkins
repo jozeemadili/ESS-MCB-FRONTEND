@@ -1,0 +1,46 @@
+pipeline {
+    agent any
+
+    environment {
+        DEPLOY_DIR = "/var/www/html/laravel"
+    }
+
+        stages {
+        stage('Deploy Project') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "🔄 Syncing files..."
+                    rsync -az \
+                    --no-o --no-g --no-times --no-perms \
+                    --exclude .git \
+                    --exclude vendor \
+                    --exclude storage \
+                    "$WORKSPACE/" "$DEPLOY_DIR/"
+
+
+                    # cd "$DEPLOY_DIR"
+
+                    # echo "🔍 Checking environment file..."
+                    # if [ ! -f ".env.prod" ]; then
+                    #     echo "❌ ERROR: .env.prod not found in $DEPLOY_DIR"
+                    #     exit 1
+                    # fi
+
+                    # echo "🔁 Replacing .env..."
+                    # rm -f .env
+                    # cp .env.prod .env
+
+                    # echo "📄 Current .env (first 5 lines):"
+                    # head -n 5 .env
+
+                    # echo "🚀 Deployment complete."
+
+                    echo "🌐 Health check..."
+                    curl -f https://172.10.5.50/ || exit 1
+                '''
+            }
+        }
+    }
+}

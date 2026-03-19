@@ -1,0 +1,106 @@
+<?php
+use App\Http\Controllers\API\Auth\CustomersController;
+use App\Http\Controllers\API\Loans\loanController;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\API\Auth\PortalUsersController;
+use App\Http\Controllers\API\Companies\BranchesController;
+use App\Http\Controllers\API\Notifications\SMSController;
+use App\Http\Controllers\API\Products\ProductsController;
+
+@include_once('admin_web.php');
+// passwordHash
+Route::get('/test', [SMSController::class, 'passwordHash']);
+
+//Portal Users Auth
+Route::get('/', [PortalUsersController::class, 'index'])->name('/');
+Route::post('/portal/auth', [PortalUsersController::class, 'loginWeb']);
+
+Route::get('/portal/auth', [PortalUsersController::class, 'index'])->name('login');
+
+Route::post('/forget-password', function(){
+    return 'Upcoming Soon !';
+})->name('forget-password');
+
+Route::get('/how-to-use', [PortalUsersController::class, 'howToUse'])->name('how-to-use');
+
+Route::group(['prefix' => 'v1/','middleware' => ['auth']], function()
+{
+    Route::get('logout',[PortalUsersController::class, 'logout'])->name('logout');
+    Route::view('dashboard', 'admin.dashboard.home')->name('home');
+    Route::view('summary', 'admin.dashboard.general_summary')->name('general');
+    // my routes
+    Route::get('properties/staff/registration/profile/{id}',[loanController::class, 'profile'])->name('staff-profile');
+    Route::get('loans/aplications', [loanController::class, 'get'])->name('loans-applications');
+    Route::post('loans/aplications', [loanController::class, 'search'])->name('loans-applications');
+    Route::get('loans/aplications/rejected', [loanController::class, 'getRejected'])->name('loans-rejected');
+    Route::get('loans/aplications/cancelled', [loanController::class, 'getCancelled'])->name('loans-cancelled');
+    Route::get('posted/cbs', [loanController::class, 'getPostCbs'])->name('posted-cbs');
+    
+    Route::get('loans/pending', [loanController::class, 'getPending'])->name('loans-pending');
+    Route::get('loans/pendingall', [loanController::class, 'getPendingAll'])->name('loans-pendingall');
+    Route::get('loans/approved', [loanController::class, 'getApproved'])->name('loans-approved');
+    Route::get('loans/approvedca', [loanController::class, 'getApprovedforCa'])->name('loans-approved-ca');
+    Route::get('loans/approvedcm', [loanController::class, 'getApprovedforCm'])->name('loans-approved-cm');
+    Route::get('loans/disbursed', [loanController::class, 'getDisbursed'])->name('loans-disbursed');
+    Route::get('loans/accepted', [loanController::class, 'getAccepted'])->name('loans-accepted');
+    Route::get('loans/aplications/topup', [loanController::class, 'geticon'])->name('loans-applications-topup');
+    Route::post('properties/staff/update/profile', [loanController::class, 'updateLoanStatus'])->name('update-staff');
+    Route::post('properties/staff/update/liqiudation', [loanController::class, 'updateLoanLiquidataionStatus'])->name('update-staff-liqiudation');
+    Route::post('properties/staff/update/loanAccount', [loanController::class, 'updateLoanAccountDetails'])->name('update-staff-loanAccount');
+    Route::post('properties/staff/update/loanAccountonly', [loanController::class, 'updateLoanAccountDetailsLoanAcc'])->name('update-staff-loanAccountonly');
+    Route::get('customers/bonds/download', [loanController::class, 'exportData'])->name('policies-reports-download-Excel');
+    Route::get('customers/disbursed/download', [loanController::class, 'exportDisbursed'])->name('disbursed-reports-download-Excel');
+    Route::get('customers/approved/download', [loanController::class, 'exportApproved'])->name('approved-reports-download-Excel');
+    Route::get('customers/cm/download', [loanController::class, 'exportApprovedcm'])->name('cm-reports-download-Excel');
+    Route::get('customers/ca/download', [loanController::class, 'exportApprovedca'])->name('ca-reports-download-Excel');
+    Route::get('customers/qa/download', [loanController::class, 'exportApprovedqa'])->name('qa-reports-download-Excel');
+    Route::get('customers/accepted/download', [loanController::class, 'exportAcceptedbyBank'])->name('accepted-reports-download-Excel');
+    Route::get('customers/rejected/download', [loanController::class, 'exportRejected'])->name('rejected-reports-download-Excel');
+    Route::get('customers/cancelled/download', [loanController::class, 'exportCancelled'])->name('cancelled-reports-download-Excel');
+    Route::get('customers/rejected/download', [loanController::class, 'exportPostedCbs'])->name('posted-cbs-download-Excel');
+    
+
+    
+    //Security
+    Route::get('security/users', [PortalUsersController::class, 'get'])->name('portal-users');
+    Route::post('security/users', [PortalUsersController::class, 'search'])->name('portal-users-search');
+    Route::post('loans/aplications/search', [loanController::class, 'search'])->name('loans-applications-search');
+    Route::get('security/users/profile', [PortalUsersController::class, 'profile'])->name('security-user-profile');
+    // Route::post('security/utumish/branches', [BranchesController::class, 'getBranch'])->name('branches-list'); 
+    Route::get('security/utumish/branches', [BranchesController::class, 'getBranch'])->name('branches-list'); 
+    Route::post('security/utumish/branches', [BranchesController::class, 'getBranchBySearch'])->name('branches-list'); 
+    
+    Route::get('security/users/resert_password/{id}', [PortalUsersController::class, 'resert_password'])->name('security-user-resert_password');
+    
+
+
+    Route::post('security/users/profile/change_password', [PortalUsersController::class, 'change_password'])->name('security-user-change_password');
+    Route::post('security/users/add', [PortalUsersController::class, 'register'])->name('portal-users-add');
+    Route::view('security/configurations', 'admin.security.configurations')->name('security-system-configurations');
+    Route::view('security/configurations', 'admin.security.configurations')->name('security-system-configurations');
+    Route::view('security/audit', 'admin.security.audit')->name('security-system-audit-trail');
+
+     //Products
+    Route::view('products/reports', 'admin.products.reports')->name('products-reports'); 
+    Route::get('products/registration',[ProductsController::class, 'get'])->name('products-registration');
+    Route::post('products/add',[ProductsController::class, 'register'])->name('products-add');
+    Route::post('products/edit',[ProductsController::class, 'editProduct'])->name('products-edit');
+    Route::get('products/get/condition/{id}',[ProductsController::class, 'getProductCondition'])->name('products-condtions');
+    Route::post('products/condition/add',[ProductsController::class, 'registerProductCondition'])->name('condition-add'); 
+    Route::get('security/product/condition/manage/{id}/{status}', [ProductsController::class, 'updateProdyctConditionStatus'])->name('product-condition-update');
+    Route::get('security/user/profile/manage/{id}/{status}', [ProductsController::class, 'updateUserStatus'])->name('user-status-update');
+
+    Route::get('security/branch/mapping/manage/{id}/{status}', [ProductsController::class, 'updateBranchConditionStatus'])->name('branch-mapping-update');
+
+    Route::get('security/product/profile/manage/{id}/{status}', [PortalUsersController::class, 'updateProdyctStatus'])->name('product-status-update');
+
+       //Properties
+    Route::view('properties/reports', 'admin.properties.reports')->name('properties-reports');
+    Route::get('customers/registration', [CustomersController::class, 'get'])->name('customers-registration');
+
+    Route::post('security/utumish/v1/intermediary/branches/add', [BranchesController::class, 'register'])->name('branches-add');
+    Route::post('security/utumish/v1/intermediary/branches/search', [BranchesController::class, 'branchSearch'])->name('branches-search');
+  
+    
+
+});

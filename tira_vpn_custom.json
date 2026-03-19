@@ -1,0 +1,12 @@
+{
+    "OutsideIpAddress": "13.246.55.184",
+    "Phase1EncryptionAlgorithms": ["AES128"],
+    "Phase1IntegrityAlgorithms": ["SHA256"],
+    "Phase1DiffieHellmanGroupNumbers": [2],
+    "Phase1LifetimeSeconds": 86400,
+    "Phase2EncryptionAlgorithms": ["AES128"],
+    "Phase2IntegrityAlgorithms": ["SHA256"],
+    "Phase2DiffieHellmanGroupNumbers": [0],
+    "Phase2LifetimeSeconds": 3600,
+    "PreSharedKey": "Zc8QXVzIa1mJe4H0MEDMTAYbkXxLI0vs2rMg1Z9dpeCas92zkzynM2zrs1uM27Pa"
+}

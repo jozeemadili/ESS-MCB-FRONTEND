@@ -1,0 +1,55 @@
+<div class="row">
+
+    <div class="col-lg-6">
+        <div class="card income-card card-primary">
+          <br />
+          <div class="card-body text-center">
+            <div class="round-box">
+                <i class="icofont icofont-checked" style="font-size: 40px;"></i>
+            </div>
+            <h5>{{ $summary['completedQuotations'] }}</h5>
+            <p>Total Loans </p>
+          </div><br />
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card income-card card-secondary">
+          <br />
+          <div class="card-body text-center">
+            <div class="round-box">
+                <i class="icofont icofont-connection" style="font-size: 40px;"></i>
+            </div>
+            <h5>{{ $summary['pendingQuotations'] }}</h5>
+            <p>Pending </p>
+          </div><br />
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card income-card card-primary">
+          <br />
+          <div class="card-body text-center">
+            <div class="round-box">
+                <i class="icofont icofont-money" style="font-size: 40px;"></i>
+            </div>
+            <h5>{{ $summary['completedPayments'] }}</h5>
+            <p>Approved </p>
+          </div><br />
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card income-card card-secondary">
+          <br />
+          <div class="card-body text-center">
+            <div class="round-box">
+                <i class="icofont icofont-pixels" style="font-size: 40px;"></i>
+            </div>
+            <h5>{{ $summary['pendingPayments'] }}</h5>
+            <p>confirmed </p>
+          </div><br />
+        </div>
+      </div>
+
+</div>

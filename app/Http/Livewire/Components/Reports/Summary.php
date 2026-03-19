@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Http\Livewire\Components\Reports;
+
+use App\Models\Company;
+use App\Models\Payment;
+use App\Models\Quotation;
+use App\Models\LOANAPPLICATION;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Livewire\Component;
+
+class Summary extends Component
+{
+    public $summary;
+    public $accessAll;
+
+    public function render()
+    {
+        // if(Auth::user()->role == 'Branch Operations')
+        // {
+        //     $allApplication =  LOANAPPLICATION::where('INIT_BRANCH', Auth::user()->branch_id)->count();
+        //     $Pending        =  LOANAPPLICATION::where('TRANSACTION_STATUS', 'Pending')->where('INIT_BRANCH', Auth::user()->branch_id)->count(); 
+        //     $Approved       =  LOANAPPLICATION::where('TRANSACTION_STATUS', 'Approved')->where('INIT_BRANCH', Auth::user()->branch_id)->count();  
+        //     $Disbursed      =  LOANAPPLICATION::where('TRANSACTION_STATUS', 'Disbursed')->where('INIT_BRANCH', Auth::user()->branch_id)->count();  
+        //     $Rejected       =  LOANAPPLICATION::where('TRANSACTION_STATUS', 'Rejected')->where('INIT_BRANCH', Auth::user()->branch_id)->count();  
+        //     $cannceled      =  LOANAPPLICATION::where('LOAN_STATUS', 'Cancelled')->where('INIT_BRANCH', Auth::user()->branch_id)->count();  
+        // }
+        //  else
+        // {
+        //     $allApplication =  LOANAPPLICATION::get()->count();
+        //     $Pending        =  LOANAPPLICATION::whereTransaction_status('Pending')->count(); 
+        //     $Approved       =  LOANAPPLICATION::whereTransaction_status('Approved')->count();  
+        //     $Disbursed      =  LOANAPPLICATION::whereTransaction_status('Disbursed')->count();  
+        //     $Rejected       =  LOANAPPLICATION::whereTransaction_status('Rejected')->count();  
+        //     $cannceled      =  LOANAPPLICATION::whereLoan_status('Cancelled')->count();   
+        // }
+         
+           
+            
+        // $this->summary = array('allApplication' => number_format($allApplication, 0, '.', ','), 'Pending' => number_format($Pending, 0, '.', ','), 'Approved' => number_format($Approved, 0, '.', ','), 'Disbursed' => number_format($Disbursed, 0, '.', ','), 'Rejected' => number_format($Rejected, 0, '.', ','), 'cannceled' => number_format($cannceled, 0, '.', ','));
+        // return view('livewire.components.reports.summary');
+    }
+}

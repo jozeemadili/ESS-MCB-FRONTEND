@@ -1,0 +1,546 @@
+<?php
+
+namespace App\Http\Controllers\API\Loans;
+use App\Exports\AcceptedExport;
+use App\Exports\ApprovedCaExport;
+use App\Exports\ApprovedCmExport;
+use App\Exports\ApprovedExport;
+use App\Exports\ApprovedQaExport;
+use App\Exports\CanceledExport;
+use App\Exports\DisubursedExport;
+use App\Exports\QuatationExport;
+use App\Exports\RejectedExport;
+use App\Http\Controllers\Controller;
+use App\Models\DisburmentApprovalStage;
+use App\Models\LOANAPPLICATION;
+use App\TIRAClient\Scripts\Classes\EsbClient;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
+class loanController extends Controller
+{
+    public function get()
+    {
+        session()->forget(['start_date', 'end_date']);
+        if(Auth::user()->role == 'Branch Operations')
+        {
+            $loans_datails = LOANAPPLICATION::where('INIT_BRANCH', Auth::user()->branch_id)->orderBy('ID', 'desc')->paginate(15);
+        }else{
+            $loans_datails= LOANAPPLICATION::orderBy('id','desc')->paginate(15);
+        }
+        // .blade.php
+        return view('admin.intermediaries.custom_report', ['loans' => $loans_datails]);   
+    }
+    public function getCancelled()
+    { 
+        if(Auth::user()->role == 'Branch Operations')
+        {
+            $loans_datails = LOANAPPLICATION::where('LOAN_STATUS', 'Cancelled')->where('INIT_BRANCH', Auth::user()->branch_id)->orderBy('ID', 'desc')->paginate(15);
+        }else{
+            $loans_datails = LOANAPPLICATION::where('LOAN_STATUS', 'Cancelled')->orderBy('ID', 'desc')->paginate(15);
+      
+        }
+         // $loans_datails= LOANAPPLICATION::whereTransaction_status('Pending')->orderBy('id','desc')->paginate(15);
+        return view('admin.intermediaries.branches', ['loans' => $loans_datails]);   
+    }
+    public function getRejected()
+    {
+        if(Auth::user()->role == 'Branch Operations')
+        {
+            $loans_datails = LOANAPPLICATION::where('TRANSACTION_STATUS', 'Rejected')->where('INIT_BRANCH', Auth::user()->branch_id)->orderBy('ID', 'desc')->paginate(15);
+        }else{
+        $loans_datails = LOANAPPLICATION::where('TRANSACTION_STATUS', 'Rejected')->orderBy('ID', 'desc')->paginate(15);
+        }
+        // $loans_datails= LOANAPPLICATION::whereTransaction_status('Pending')->orderBy('id','desc')->paginate(15);
+        return view('admin.intermediaries.branches', ['loans' => $loans_datails]);   
+    }
+    public function getPending()
+    {
+        if(Auth::user()->role == 'Branch Operations')
+        {
+            $loans_datails = LOANAPPLICATION::where('TRANSACTION_STATUS', 'Pending')->where('LOAN_STATUS', 'Pending')->where('INIT_BRANCH', Auth::user()->branch_id)->orderBy('APPLICATION_DATE', 'asc')->paginate(15);
+        }else{
+        $loans_datails = LOANAPPLICATION::where('TRANSACTION_STATUS', 'Pending')->where('LOAN_STATUS', 'Pending')->orderBy('APPLICATION_DATE', 'asc')->paginate(15);
+        }
+        // $loans_datails= LOANAPPLICATION::whereTransaction_status('Pending')->orderBy('id','desc')->paginate(15);
+        return view('admin.intermediaries.branches', ['loans' => $loans_datails]);   
+    }
+    public function search(Request $request)
+    {
+        $loans_details = LOANAPPLICATION::query();
+
+        $start_date = $request->start_date;
+        $end_date = $request->end_date;
+        session(['start_date' => $start_date]);
+        session(['end_date' => $end_date]);
+        // Adjust end_date to cover the entire day
+        if (!empty($start_date) && !empty($end_date)) {
+            $end_date = date('Y-m-d', strtotime($end_date)) . ' 23:59:59';
+            $loans_details->whereBetween('APPLICATION_DATE', [$start_date, $end_date]);
+        }
+        // // Check if the request includes a date range (start_date and end_date)
+        // if (!empty($request->start_date) && !empty($request->end_date)) {
+        //     $loans_details->whereBetween('APPLICATION_DATE', [$request->start_date, $request->end_date]);
+        // }
+
+        // If all details are provided, prioritize finding an exact match for all details
+        if (!empty($request->phone_number) && !empty($request->id_number) && !empty($request->cname) && !empty($request->loan_id)) {
+            $loans_details->where('MSISDN', $request->phone_number)
+                ->where('APPLICATION_NUMBER', $request->id_number)
+                ->where('LOAN_ID', $request->loan_id)
+                ->where(function ($query) use ($request) {
+                    $names = explode(' ', $request->cname); // Split name into parts
+                    foreach ($names as $name) {
+                        $query->orWhere('FIRST_NAME', 'like', '%' . $name . '%')
+                            ->orWhere('MIDDLE_NAME', 'like', '%' . $name . '%')
+                            ->orWhere('LAST_NAME', 'like', '%' . $name . '%');
+                    }
+                });
+        } else {
+            // Apply conditions based on non-empty inputs
+            if (!empty($request->phone_number)) {
+                $loans_details->where('MSISDN', $request->phone_number);
+            }
+
+            if (!empty($request->loan_id)) {
+                $loans_details->where('LOAN_ID', $request->loan_id);
+            }
+
+            if (!empty($request->id_number)) {
+                $loans_details->where('APPLICATION_NUMBER', $request->id_number);
+            }
+
+            if (!empty($request->cname)) {
+                $loans_details->where(function ($query) use ($request) {
+                    $names = explode(' ', $request->cname); // Split name into parts
+                    foreach ($names as $name) {
+                        $query->orWhere('FIRST_NAME', 'like', '%' . $name . '%')
+                            ->orWhere('MIDDLE_NAME', 'like', '%' . $name . '%')
+                            ->orWhere('LAST_NAME', 'like', '%' . $name . '%');
+                    }
+                });
+            }
+            // if (!empty($start_date) && !empty($end_date)) {
+            //     $end_date = date('Y-m-d', strtotime($end_date)) . ' 23:59:59';
+            //     $loans_details->whereBetween('APPLICATION_DATE', [$start_date, $end_date]);
+            // }
+            // Apply date range if start_date and end_date are provided
+            if (!empty($request->start_date) && !empty($request->end_date)) {
+                $end_date = date('Y-m-d', strtotime($end_date)) . ' 23:59:59';
+                $loans_details->whereBetween('APPLICATION_DATE', [$start_date, $end_date]);
+                // $loans_details->whereBetween('APPLICATION_DATE', [$request->start_date, $request->end_date]);
+            }
+        }
+
+        // Add pagination to the query (you can specify the number of items per page)
+        if (!empty($request->start_date) && !empty($request->end_date)){
+
+        }else
+        {
+            
+        }
+        $loans_details = $loans_details->paginate(10); // 10 items per page
+        return view('admin.intermediaries.custom_report', ['loans' => $loans_details]);
+
+    }
+    public function searchOld(Request $request)
+    {
+        
+        if (!empty($request->date_wise))
+        {
+
+            $loans_details = LOANAPPLICATION::query();
+            $loans_details->where('MSISDN', $request->phone_number);
+        }else
+        {
+            $loans_details = LOANAPPLICATION::query();
+        // 
+            // If all details are provided, prioritize finding an exact match for all details
+            if (!empty($request->phone_number) && !empty($request->id_number) && !empty($request->cname) && !empty($request->loan_id)) {
+                $loans_details->where('MSISDN', $request->phone_number)
+                    ->where('APPLICATION_NUMBER', $request->id_number)
+                    ->where('LOAN_ID', $request->loan_id)
+                    ->where(function ($query) use ($request) {
+                        $names = explode(' ', $request->cname); // Split name into parts
+                        foreach ($names as $name) {
+                            $query->orWhere('FIRST_NAME', 'like', '%' . $name . '%')
+                                ->orWhere('MIDDLE_NAME', 'like', '%' . $name . '%')
+                                ->orWhere('LAST_NAME', 'like', '%' . $name . '%');
+                        }
+                    });
+            } 
+            else 
+            {
+                // Apply conditions based on non-empty inputs
+                if (!empty($request->phone_number)) {
+                    $loans_details->where('MSISDN', $request->phone_number);
+                }
+        
+                if (!empty($request->loan_id)) {
+                    // dd("jose".$request->loan_id);
+                    $loans_details->where('LOAN_ID', $request->loan_id);
+                }
+        
+                if (!empty($request->id_number)) {
+                    $loans_details->where('APPLICATION_NUMBER', $request->id_number);
+                }
+        
+                if (!empty($request->cname)) {
+                    $loans_details->where(function ($query) use ($request) {
+                        $names = explode(' ', $request->cname); // Split name into parts
+                        foreach ($names as $name) {
+                            $query->orWhere('FIRST_NAME', 'like', '%' . $name . '%')
+                                ->orWhere('MIDDLE_NAME', 'like', '%' . $name . '%')
+                                ->orWhere('LAST_NAME', 'like', '%' . $name . '%');
+                        }
+                    });
+                }
+            }
+
+        }
+        
+    
+        $loans_details = $loans_details->orderBy('ID', 'desc')->paginate(10);
+    
+        return view('admin.intermediaries.branches', ['loans' => $loans_details]);
+    }
+    
+    public function getPendingAll()
+    {
+        if(Auth::user()->role == 'Branch Operations')
+        {
+            $loans_datails = LOANAPPLICATION::where('TRANSACTION_STATUS', 'Pending')->where('INIT_BRANCH', Auth::user()->branch_id)->orderBy('APPLICATION_DATE', 'asc')->paginate(15);
+        }else{
+        $loans_datails = LOANAPPLICATION::where('TRANSACTION_STATUS', 'Pending')->orderBy('APPLICATION_DATE', 'desc')->paginate(15);
+        }
+        // $loans_datails= LOANAPPLICATION::whereTransaction_status('Pending')->orderBy('id','desc')->paginate(15);
+        return view('admin.intermediaries.branches', ['loans' => $loans_datails]);   
+    }
+    public function getAccepted()
+    {
+        if(Auth::user()->role == 'Branch Operations')
+        {
+            $loans_datails = LOANAPPLICATION::where('LOAN_STATUS', 'Accepted')->where('INIT_BRANCH', Auth::user()->branch_id)->orderBy('ID', 'desc')->paginate(15);
+        }else{
+        $loans_datails= LOANAPPLICATION::whereLoan_status('Accepted')->orderBy('id','desc')->paginate(15);
+        }
+        return view('admin.intermediaries.branches', ['loans' => $loans_datails]);   
+    }
+    public function getApproved()
+    {if(Auth::user()->role == 'Branch Operations')
+        {
+            $loans_datails = LOANAPPLICATION::where('TRANSACTION_STATUS', 'Approved')->where('INIT_BRANCH', Auth::user()->branch_id)->orderBy('APPROVED_DATE', 'asc')->paginate(15);
+        }else{
+        $loans_datails= LOANAPPLICATION::whereTransaction_status('Approved')->orderBy('APPROVED_DATE','desc')->paginate(15);
+        }
+        return view('admin.intermediaries.branches', ['loans' => $loans_datails]);   
+    }
+    public function getApprovedforCm()
+    {
+        // $loans_datails= LOANAPPLICATION::whereTransaction_status('Approved')->orderBy('id','desc')->paginate(15);
+        $loans_datails = LoanApplication::where('Transaction_status', 'Approved')
+        ->join('disburment_approval_stages', 'LOAN_APPLICATION.id', '=', 'disburment_approval_stages.loan_id')
+        // ->where('disburment_approval_stages.status', 'INITIATED')
+        ->whereIn('disburment_approval_stages.status', ['INITIATED', 'INITIATED_REJECTION'])
+        ->orderBy('LOAN_APPLICATION.APPROVED_DATE', 'desc')
+        ->select('LOAN_APPLICATION.*') // To avoid selecting columns from disburment_approval_stages
+        ->paginate(15);
+        return view('admin.intermediaries.branches', ['loans' => $loans_datails]);   
+    }
+    public function getApprovedforCa()
+    {
+        $loans_details = LOANAPPLICATION::where('TRANSACTION_STATUS','Approved')
+        ->leftJoin('disburment_approval_stages', 'LOAN_APPLICATION.ID', '=', 'disburment_approval_stages.loan_id')
+        ->whereNull('disburment_approval_stages.id')
+        ->orderBy('LOAN_APPLICATION.APPROVED_DATE', 'desc')
+        ->select('LOAN_APPLICATION.*') // To avoid selecting columns from disburment_approval_stages
+        ->paginate(15);
+        // $loans_datails= LOANAPPLICATION::whereTransaction_status('Approved')->orderBy('id','desc')->paginate(15);
+        return view('admin.intermediaries.branches', ['loans' => $loans_details]);   
+    }
+    public function getDisbursed()
+    {   if(Auth::user()->role == 'Branch Operations')
+        {
+            $loans_datails = LOANAPPLICATION::where('TRANSACTION_STATUS', 'Disbursed')->where('INIT_BRANCH', Auth::user()->branch_id)->orderBy('ID', 'desc')->paginate(15);
+        }else{
+        $loans_datails= LOANAPPLICATION::whereTransaction_status('Disbursed')->orderBy('id','desc')->paginate(15);
+        }
+        return view('admin.intermediaries.branches', ['loans' => $loans_datails]);   
+    }
+    public function geticon()
+    {
+        return view('admin.icons.ico-icon');   
+    }
+    public function profile($id)
+    {
+        try
+        {
+            $vehicle= LOANAPPLICATION::find($id);
+            $approval_datils = DisburmentApprovalStage::where('loan_id', $id)->first();
+            return view('admin.properties.staff-profile',['vehicle' => $vehicle,'approval_datils' => $approval_datils]);
+        }
+        catch(Exception $e){
+            return array("responseCode" => "FAILED", "message" => $e->getMessage());
+        }
+    }
+    public function exportData()
+    {
+        return self::export();
+    }
+    
+    public function export() 
+    {
+        return Excel::download(new QuatationExport, 'All-Loans.xlsx');
+    }
+    public function exportDisbursed() 
+    {
+        return Excel::download(new DisubursedExport, 'All-Loans-Disbursed.xlsx');
+    }
+    public function exportApproved() 
+    {
+        return Excel::download(new ApprovedExport, 'All-Loans-Approved.xlsx');
+    }
+    public function exportApprovedcm() 
+    {
+        return Excel::download(new ApprovedCmExport, 'All-Loans-Approvedcm.xlsx');
+    }
+    public function exportApprovedca() 
+    {
+        return Excel::download(new ApprovedCaExport, 'All-Loans-WaitinCA.xlsx');
+    }
+    public function exportApprovedqa() 
+    {
+        return Excel::download(new ApprovedQaExport, 'All-Loans-WaitinQA.xlsx');
+    }
+    public function exportAcceptedbyBank() 
+    {
+        return Excel::download(new AcceptedExport, 'AccepeteByBak.xlsx');
+    }
+    public function exportRejected() 
+    {
+        return Excel::download(new RejectedExport, 'RejectedLoans.xlsx');
+    }
+    public function exportCancelled() 
+    {
+        return Excel::download(new CanceledExport, 'CanceledLoans.xlsx');
+    }
+    public function updateLoanAccountDetailsLoanAcc(Request $request)
+    {
+        // dd($request->loanAccount."-".$request->checkDigit);
+       $loan_detail = LOANAPPLICATION::where('ID', $request->id)->first(); // Retrieve the model instance
+       if ($loan_detail) 
+       {
+        //    $loan_detail->LINAC_ACCOUNT_NUMBER = $request->loanAccount; // Set the account number
+           $loan_detail->DISBURSEMENT_RECEIPT = $request->loanAccount;
+           
+           $loan_detail->save(); // Save the changes checkDigit
+       
+           return redirect('v1/properties/staff/registration/profile/' . $request->id)
+               ->with('success', '<b>SUCCESS</b>, Details Updated successfully.');
+       } else {
+           return redirect()->back()->with('error', 'Loan details not found.');
+       }
+    }  
+    public function updateLoanAccountDetails(Request $request)
+    {
+        // dd($request->loanAccount."-".$request->checkDigit);
+       $loan_detail = LOANAPPLICATION::where('ID', $request->id)->first(); // Retrieve the model instance
+       if ($loan_detail) 
+       {
+        //    $loan_detail->LINAC_ACCOUNT_NUMBER = $request->loanAccount; // Set the account number
+           $loan_detail->DISBURSEMENT_RECEIPT = $request->loanAccount;
+           $loan_detail->CHECK_DIGIT = $request->checkDigit;
+           $loan_detail->save(); // Save the changes checkDigit
+       
+           return redirect('v1/properties/staff/registration/profile/' . $request->id)
+               ->with('success', '<b>SUCCESS</b>, Details saved successfully.');
+       } else {
+           return redirect()->back()->with('error', 'Loan details not found.');
+       }
+    }  
+    public function updateLoanLiquidataionStatus(Request $request)
+    {
+        // dd($request->id);
+        if($request->status === 'Complete')
+        {
+        $loan_detail = LOANAPPLICATION::find($request->id);
+        $loan_detail->LIQUIDATION_CHECKER    = Auth::user()->first_name;
+        $loan_detail->LIQUIDATION_CHECKER_REMARKS    = $request->reason;
+        $loan_detail->LIQUIDATION_STATUS    = $request->status;
+        $loan_detail->save();
+        return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', 'You Have Successfully '.$request->status.' The Request <font color="red"><b> Note : </b> </font> Remember to Click Notify Button To submit your request Utumish');
+
+        }else
+        {
+        $loan_detail = LOANAPPLICATION::find($request->id);
+        $loan_detail->LIQUIDATION_MAKER    = Auth::user()->first_name;
+        $loan_detail->LIQUIDATION_MAKER_REMARKS    = $request->reason;
+        $loan_detail->LIQUIDATION_STATUS    = $request->status;
+        $loan_detail->save();
+
+        return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', 'You Have Successfully '.$request->status.' The Request');
+
+
+        }
+        
+    }
+    public function updateLoanStatus(Request $request)
+    {
+        if($request->status === 'REJECTED')
+        {
+            if(Auth::user()->role == 'Credit Officer')
+            {
+                // $endPoint='http://172.16.3.198:30002/api/v2/hmcis/initial-loan-approval';
+                $endPoint='initial-loan-approval';
+                $body='{
+                    "loanApplication":'.$request->id.',
+                    "status":"'.$request->status.'",
+                    "remarks":"'.$request->reason.'"
+                }
+               ';
+            
+                $response = EsbClient::SendesbRequestbody($body,$endPoint); 
+                $status = $response->status;
+                $statusDescription = $response->statusDescription;
+                if ($response->statusCode === 200) 
+                    {   
+                      return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', ' <b>SUCCESS</b>, '.$statusDescription.' ');
+                    }
+                else
+                    {
+                      return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', ' <b>FAILED</b>, '.$statusDescription.' ');
+                    }
+            }
+            elseif(Auth::user()->role == 'Credit Admin')
+            {
+                $DisburmentApprovalStage = DisburmentApprovalStage::create(
+                    [   
+                        'loan_id'            => $request->id,
+                        'status'             => 'INITIATED_REJECTION',
+                        'initiator_id'       => Auth::user()->id,
+                        'initiator_date'     => date('Y-m-d H:i:s')
+                    ]);
+                $loan_detail = LOANAPPLICATION::find($request->id);
+                $loan_detail->LOAN_REQUEST_INITIATOR    = Auth::user()->first_name;
+                $loan_detail->save();
+                return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', 'You Have Successfully '.$request->status.' The Request');
+            }
+            elseif(Auth::user()->role == 'Credit Operation')
+            {
+                $endPoint='disbursement-reject';
+                $body='{
+                    "loanApplication":'.$request->id.',
+                    "status":"'.$request->status.'",
+                    "remarks":"'.$request->reason.'"
+                }
+               ';
+            //    var_dump($body);
+            // dd($body);
+                $response = EsbClient::SendesbRequestbody($body,$endPoint); 
+                $status = $response->status;
+                $statusDescription = $response->statusDescription;
+                if ($response->statusCode === 200) 
+                    {   
+                        $DisburmentApprovalStage = DisburmentApprovalStage::create(
+                            [   
+                                'loan_id'            => $request->id,
+                                'status'             => 'REJECTED',
+                                'initiator_id'       => Auth::user()->id,
+                                'initiator_date'     => date('Y-m-d H:i:s')
+                            ]);
+                        $loan_detail = LOANAPPLICATION::find($request->id);
+                        $loan_detail->LOAN_REQUEST_INITIATOR    = Auth::user()->first_name;
+                        $loan_detail->save();
+                      return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', ' <b>SUCCESS</b>, '.$statusDescription.' ');
+                    }
+                else
+                    {
+                      return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', ' <b>FAILED</b>, '.$statusDescription.' ');
+                    }
+
+            }
+        }
+        elseif($request->status === 'Approved')
+        {
+            if(Auth::user()->role == 'Credit Officer')
+            {
+                // $endPoint='http://172.16.3.198:30002/api/v2/hmcis/initial-loan-approval';
+                $endPoint='initial-loan-approval';
+                $body='{
+                    "loanApplication":'.$request->id.',
+                    "status":"'.$request->status.'",
+                    "remarks":"'.$request->reason.'"
+                }
+               ';
+                $response = EsbClient::SendesbRequestbody($body,$endPoint); 
+                $status = $response->status;
+                $statusDescription = $response->statusDescription;
+                if ($response->statusCode === 200) 
+                    {   
+                      return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', ' <b>SUCCESS</b>, '.$statusDescription.' ');
+                    }
+                else
+                    {
+                      return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', ' <b>FAILED</b>, '.$statusDescription.' ');
+                    }
+            }
+            elseif(Auth::user()->role == 'Credit Admin')
+            {
+                $DisburmentApprovalStage = DisburmentApprovalStage::create(
+                    [   
+                        'loan_id'            => $request->id,
+                        'status'             => 'INITIATED',
+                        'initiator_id'       => Auth::user()->id,
+                        'initiator_date'     => date('Y-m-d H:i:s')
+                    ]);
+                $loan_detail = LOANAPPLICATION::find($request->id);
+                $loan_detail->LOAN_REQUEST_INITIATOR    = Auth::user()->first_name;
+                $loan_detail->save();
+                return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', 'You Have Successfully '.$request->status.' The Request');
+            }
+            elseif(Auth::user()->role == 'Credit Operation')
+            {
+                // $endPoint='http://172.16.3.198:30002/api/v2/hmcis/disbursement/'.$request->id.'';
+                $endPoint='disbursement/'.$request->id.'';
+                $response = EsbClient::SendesbRequesturl($endPoint); 
+                $status = $response->status;
+                $statusDescription = $response->statusDescription;
+                if ($response->statusCode === 200) 
+                    {
+                        $details = DisburmentApprovalStage::where('loan_id', $request->id)->first();
+                        if($details != null)
+                        {
+                            $DisburmentApprovalStageDetails = DisburmentApprovalStage::where('loan_id', $request->id)->first();
+                            $DisburmentApprovalStageDetails->status        = 'DISBURSED';
+                            $DisburmentApprovalStageDetails->checker_id    = Auth::user()->id;
+                            $DisburmentApprovalStageDetails->checker_date  = date('Y-m-d H:i:s'); 
+                            $DisburmentApprovalStageDetails->save();
+    
+                            $loan_detail = LOANAPPLICATION::find($request->id);
+                            $loan_detail->LOAN_REQUEST_CHECKER    = Auth::user()->first_name;
+                            $loan_detail->save();
+                            return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', ' <b>SUCCESS</b>, '.$statusDescription.' ');   
+                        }
+                        else
+                        {
+                            return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', 'Failed to update Approval Status');
+                        }
+                    }
+                else
+                    {
+                        return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', ' <b>FAILED</b>, '.$statusDescription.' ');
+                    }
+        }else
+        {
+
+        }
+        
+        }
+        else
+        {
+
+        }
+       
+    } 
+}

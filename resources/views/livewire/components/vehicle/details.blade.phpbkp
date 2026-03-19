@@ -1,0 +1,361 @@
+<div class="rowx">
+    <div class="col-lg-12">
+        <div class="card card-absolute">
+            <div class="card-header bg-default">
+                <h5 class="text-dark">Applicant Information </h5>
+            </div>
+            <div class="card-body">
+               <div class="row">
+                    <div class="col-lg-6">
+                    <ul class="list-group">
+                    
+                        <li class="list-group-item d-flex justify-content-between align-items-center">ID.<span class="badge badge-primary rounded-pill">{{ $vehicle->ID }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Application No.<span class="badge badge-primary rounded-pill">{{ $vehicle->APPLICATION_NUMBER }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">First Name.<span class="badge badge-primary rounded-pill">{{ $vehicle->FIRST_NAME }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Middle  Name.<span class="badge badge-primary rounded-pill">{{ $vehicle->MIDDLE_NAME }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Last Name<span class="badge badge-primary rounded-pill">{{  $vehicle->LAST_NAME }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Email<span class="badge badge-primary rounded-pill">{{ $vehicle->EMAIL_ADDRESS}}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Terms Of Employment<span class="badge badge-primary rounded-pill">{{ $vehicle->TERMS_OF_EMPLOYMENT}}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Designation Name<span class="badge badge-primary rounded-pill">{{ $vehicle->DESIGNATION_NAME }} ({{ $vehicle->DESIGNATION_CODE}})</span></li>
+                    </ul>
+                    </div>
+                    
+                    <div class="col-lg-6">
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Phone<span class="badge badge-primary rounded-pill">+{{ $vehicle->MSISDN }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">National ID<span class="badge badge-primary rounded-pill">{{ $vehicle->NATIONAL_ID }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">physical Address<span class="badge badge-primary rounded-pill">{{ $vehicle->PHYSICAL_ADDRESS }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Gender<span class="badge badge-primary rounded-pill">{{ $vehicle->SEX }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Marital Status<span class="badge badge-primary rounded-pill">{{ $vehicle->MARITAL_STATUS }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Employment Date<span class="badge badge-primary rounded-pill">{{ $vehicle->EMPLOYMENT_DATE->format('d M Y') }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Months to Retire<span class="badge badge-primary rounded-pill">{{ $vehicle->RETIREMENT_DATE }} (Months)</span></li>
+                            <!-- <li class="list-group-item d-flex justify-content-between align-items-center">DESIGNATION_CODE<span class="badge badge-primary rounded-pill">{{ $vehicle->DESIGNATION_CODE}}</span></li> -->
+                        </ul>
+                    </div>
+                    </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-12">
+        <div class="card card-absolute">
+            <div class="card-header bg-default">
+                <h5 class="text-dark">Loan Details </h5>
+            </div>
+            <div class="card-body">
+             <div class="row">
+                    <div class="col-lg-6">
+                    <ul class="list-group"> 
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Loan ID<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_ID}}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Loan Purpose<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_PURPOSE}}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Loan Status<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_STATUS }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Requested Amount<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->REQUESTED_AMOUNT, 2,'.',',') }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Tenure<span class="badge badge-primary rounded-pill">{{ $vehicle->TENURE }} Months</span></li>
+                        @if(isset($vehicle->CONTRACT_START_DATE))
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Contract Start Date<span class="badge badge-primary rounded-pill">{{ $vehicle->CONTRACT_START_DATE->format('d M Y') }}</span></li>
+                        @else
+                        @endif
+                        @if(isset($vehicle->CONTRACT_END_DATE))
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Contract End Date<span class="badge badge-primary rounded-pill">{{ $vehicle->CONTRACT_END_DATE->format('d M Y') }}</span></li>
+                        @else
+                        @endif
+                    </ul>
+                    </div>
+                    <div class="col-lg-6">
+                        <ul class="list-group"> 
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Approval Description<span class="badge badge-primary rounded-pill">{{ $vehicle->APPROVAL_DESCRIPTION }}</span></li>
+                            @if(isset($vehicle->APPROVED_DATE))
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Approved Date<span class="badge badge-primary rounded-pill">{{ $vehicle->APPROVED_DATE->format('d M Y H:i:s')  }}</span></li> 
+                            @else
+                            @endif
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Transaction Status 
+                            @if($vehicle->TRANSACTION_STATUS === 'APPROVED')
+                            <span class="badge badge-primary rounded-pill">{{ $vehicle->TRANSACTION_STATUS }}</span></li>
+                            @elseif($vehicle->TRANSACTION_STATUS === 'CONFERMED')
+                            <span class="badge badge-info rounded-pill">{{ $vehicle->TRANSACTION_STATUS }}</span></li>
+                            @elseif($vehicle->TRANSACTION_STATUS === 'PENDING')
+                            <span class="badge badge-secondary rounded-pill">{{ $vehicle->TRANSACTION_STATUS }}</span></li>
+                            @else
+                            <span class="badge badge-danger rounded-pill">{{ $vehicle->TRANSACTION_STATUS }}</span></li>
+                            @endif
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Loan Disbursed Date <span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_DISBURSED_DATE }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Disbursement Receipt <span class="badge badge-primary rounded-pill">{{ $vehicle->DISBURSEMENT_RECEIPT }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Interest Code <span class="badge badge-primary rounded-pill">{{ $vehicle->INTEREST_CODE }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">Total Amount <span class="badge badge-primary rounded-pill">{{ number_format($vehicle->TOTAL_AMOUNT, 2,'.',',') }}</span></li>
+                        </ul>
+                    </div>
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-12">
+        <div class="card card-absolute">
+            <div class="card-header bg-default">
+                <h5 class="text-dark">Branch Details </h5>
+            </div>
+            <div class="card-body">
+             <div class="row">
+                    <div class="col-lg-6">
+                    <ul class="list-group"> 
+                        <li class="list-group-item d-flex justify-content-between align-items-center">BRANCH_NAME<span class="badge badge-primary rounded-pill">{{ $vehicle->BRANCH_NAME}}</span></li>
+                        
+                     </ul>
+                    </div>
+                    <div class="col-lg-6">
+                        <ul class="list-group"> 
+                            <li class="list-group-item d-flex justify-content-between align-items-center">LOAN_REQUEST_INITIATOR<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_REQUEST_INITIATOR }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">LOAN_REQUEST_CHECKER<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_REQUEST_CHECKER  }}</span></li> 
+                       </ul>
+                    </div>
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-12">
+        <div class="card card-absolute">
+            <div class="card-header bg-default">
+                <h5 class="text-dark">Tracking Informations </h5>
+            </div>
+            <div class="card-body">
+             <div class="row">
+                    <div class="col-lg-6">
+                    <ul class="list-group"> 
+                        <li class="list-group-item d-flex justify-content-between align-items-center">CHECK_NUMBER<span class="badge badge-primary rounded-pill">{{ $vehicle->CHECK_NUMBER}}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">CONFIRMATION_DATE<span class="badge badge-primary rounded-pill">{{ $vehicle->CONFIRMATION_DATE}}</span></li>
+                        
+                     </ul>
+                    </div>
+                    <div class="col-lg-6">
+                        <ul class="list-group"> 
+                            <li class="list-group-item d-flex justify-content-between align-items-center">PRODUCT_CODE<span class="badge badge-primary rounded-pill">{{ $vehicle->PRODUCT_CODE }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">REFERENCE_NUMBER<span class="badge badge-primary rounded-pill">{{ $vehicle->REFERENCE_NUMBER  }}</span></li> 
+                            <li class="list-group-item d-flex justify-content-between align-items-center">REASON<span class="badge badge-primary rounded-pill">{{ $vehicle->REASON  }}</span></li> 
+                       </ul>
+                    </div>
+                  </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-12">
+        <div class="card card-absolute">
+            <div class="card-header bg-default">
+                <h5 class="text-dark">Actions</h5>
+            </div>
+            <div class="card-body">
+
+            @if($vehicle->LOAN_STATUS === 'Pending')
+                @if(Auth::user()->role == 'Qality Assurance Officer')
+                <div class="row">  
+                        <div class="col-lg-6">
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newModal"> Qality Assurance Officer Approve Request <i class="icofont icofont-tick-boxed"></i></button>
+                        </div>
+                        <div class="col-lg-6">
+                            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newModalReject"> Qality Assurance Officer Reject Request <i class="icofont icofont-trash"></i></button>
+                        </div>
+                </div>
+                @else
+                <div class="alert alert-info outline alert-dismissible fade show" role="alert">
+                    <i class="icofont icofont-check-circled"></i>
+                        Awaiting Quality Assurance Action
+                    <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close" data-bs-original-title="" title=""></button>
+                </div>
+                @endif
+            @endif
+
+            @if($vehicle->LOAN_STATUS === 'Approved')
+                <div class="alert alert-secondary outline alert-dismissible fade show" role="alert">
+                    <i class="icofont icofont-check-circled"></i>
+                        Awaiting Approval From His / Her Office.
+                    <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close" data-bs-original-title="" title=""></button>
+                    </div>
+            @endif   
+            
+            @if($vehicle->LOAN_STATUS === 'Cancelled')
+                <div class="alert alert-danger outline alert-dismissible fade show" role="alert">
+                    <i class="icofont icofont-minus-circle"></i>
+                        This Request Has been Canceled
+                    <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close" data-bs-original-title="" title=""></button>
+                    </div>
+            @endif   
+
+            @if($vehicle->LOAN_STATUS === 'confirmed' )
+                @if(Auth::user()->role == 'Credit Admin' && !isset($approval_datils))
+                    <div class="row">  
+                            <div class="col-lg-6">
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newModal">Credit Admin  Disbursement Initioation <i class="icofont icofont-tick-boxed"></i></button>
+                            </div>
+                            <div class="col-lg-6">
+                                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newModalReject"> Credit Admin Reject Disbursement <i class="icofont icofont-trash"></i></button>
+                            </div>
+                    </div>
+                    @elseif($approval_datils && $approval_datils->status == 'INITIATED')
+
+                    @elseif($approval_datils && $approval_datils->status == 'DISBURSED')
+                    
+                    
+                    @else
+                    
+                    <div class="alert alert-info outline alert-dismissible fade show" role="alert">
+                        <i class="icofont icofont-check-circled"></i>
+                            Awaiting Credit Admin Action
+                        <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close" data-bs-original-title="" title=""></button>
+                    </div>
+                @endif 
+            @if(isset($approval_datils))
+                @if(Auth::user()->role == 'Credit Manager' && $approval_datils->status=='INITIATED')
+                    <div class="row">  
+                            <div class="col-lg-6">
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newModal"> Credit Manager Approve Request <i class="icofont icofont-tick-boxed"></i></button>
+                            </div>
+                            <div class="col-lg-6">
+                                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newModalReject"> Credit Manager Reject Request <i class="icofont icofont-trash"></i></button>
+                            </div>
+                    </div>
+                    @elseif($approval_datils->status=='DISBURSED')
+                    <div class="card-body">
+                    <div class="row">
+                            <div class="col-lg-12">
+                                <ul class="list-group"> 
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">Initated At<span class="badge badge-primary rounded-pill">{{ $approval_datils->initiator_date->format('d M Y H:i:s') }}</span></li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center"> Disbursed At<span class="badge badge-primary rounded-pill">{{ $approval_datils->checker_date->format('d M Y H:i:s')  }}</span></li> 
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">STATUS<span class="badge badge-primary rounded-pill">{{ $approval_datils->status  }}</span></li> 
+                            </ul>
+                            </div>
+                        </div>
+                    </div>
+                    @else
+                    <div class="alert alert-info outline alert-dismissible fade show" role="alert">
+                        <i class="icofont icofont-check-circled"></i>
+                            Awaiting Credit Manager Action
+                        <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close" data-bs-original-title="" title=""></button>
+                    </div>
+                @endif
+
+            @endif
+        @endif
+                
+            </div>
+        </div>
+    </div>
+    </div>
+
+   <!-- SEARCH MODAL START -->
+   <div class="modal fade" id="newModal" tabindex="-1" aria-hidden="true" style="display: none;">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header  bg-primary text-white">
+                <h5 class="modal-title">Approve</h5>
+                <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close" ></button>
+            </div>
+            <div class="modal-body">
+                
+                <form action="{{ Route('update-staff') }}" method="post">
+                    @csrf
+
+                    <div class="row">
+                    <div class="form-group">
+                                <label class="col-form-label"hidden >id</label>
+                                <input class="form-control" hidden type="number" value="{{ $vehicle->ID }}"  required  name="id">
+                            </div>
+                            <div class="form-group">
+                                <label class="col-form-label"hidden >id</label>
+                                <input class="form-control" hidden type="text" value="Approved"  required  name="status">
+                            </div>
+                        <div class="col-lg-12">
+                        <div class="form-group">
+                                    <label class="col-form-label" >Approve Reason</label>
+                                    <textarea class="form-control" type="text" value="{{ old('street') }}" required  name="reason"></textarea>
+                                </div>
+                        </div>
+                    </div>
+                
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-bs-dismiss="modal" >Close</button>
+                <button class="btn btn-primary" type="submit" >Confirm To Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    </div>
+ <!-- SEARCH MODAL END -->
+
+   <!-- SEARCH MODAL START -->
+   <div class="modal fade" id="newModalReject" tabindex="-1" aria-hidden="true" style="display: none;">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header  bg-primary text-white">
+                <h5 class="modal-title">REJECT</h5>
+                <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close" ></button>
+            </div>
+            <div class="modal-body">
+                
+                <form action="{{ Route('update-staff') }}" method="post">
+                    @csrf
+
+                    <div class="row">
+                    <div class="form-group">
+                                <label class="col-form-label"hidden >id</label>
+                                <input class="form-control" hidden type="number" value="{{ $vehicle->ID }}"  required  name="id">
+                            </div>
+                            <div class="form-group">
+                                <label class="col-form-label"hidden >id</label>
+                                <input class="form-control" hidden type="text" value="REJECTED444"  required  name="status">
+                            </div>
+                        <div class="col-lg-12">
+                        <div class="form-group">
+                                    <label class="col-form-label" >Reject Reason</label>
+                                    <textarea class="form-control" type="text" value="{{ old('street') }}" required  name="reason"></textarea>
+                                </div>
+                        </div>
+                    </div>
+                
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-bs-dismiss="modal" >Close</button>
+
+                <!-- <button wire:click="loanInitialApproval" class="btn btn-outline-primary  pull-right"  type="button" wire:loading.remove> Confirm To Submit <i class="icofont icofont-ui-rate-add"></i></button> -->
+                       
+                <button class="btn btn-primary" type="submit" >Confirm To Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    </div>
+ <!-- SEARCH MODAL END -->
+
+ <!-- SEARCH MODAL START -->
+ <div class="modal fade" id="newModalReject" tabindex="-1" aria-hidden="true" style="display: none;">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header  bg-danger text-white">
+                <h5 class="modal-title">Reject</h5>
+                <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close" ></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ Route('update-staff') }}" method="post">
+               
+                    @csrf
+
+                    <div class="row">
+                        
+                        <div class="col-lg-12">
+                        <div class="form-group">
+                                    <label class="col-form-label" >Reject Reason</label>
+                                    <textarea class="form-control" type="text" value="{{ old('street') }}" required  name="conditions"></textarea>
+                                </div>
+                        </div>
+                    </div>
+                
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-bs-dismiss="modal" >Close</button>
+                <button class="btn btn-danger" type="submit" >Confirm To Reject</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    </div>
+ <!-- SEARCH MODAL END -->
+    						

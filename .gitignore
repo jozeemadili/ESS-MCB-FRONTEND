@@ -3,7 +3,7 @@
 #.env.*.php
 
 # Laravel vendor folder (dependencies)
-/vendor
+# /vendor
 
 # Laravel node modules
 # /node_modules

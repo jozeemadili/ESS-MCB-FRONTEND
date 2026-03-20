@@ -5,8 +5,8 @@ return
                 [
                     'name'                      => 'Mwalimu e-Mikopo',
                     'version'                   => 'v01',
-                    'customer'                  => 'Mwalimu Commercal Bank PLC',
-                    'vendor'                    => ' Developers',
+                    'customer'                  => 'UAT Mwalimu Commercal Bank PLC',
+                    'vendor'                    => 'Developers',
                     'technical_personel'        => 'Josephat Madili',
                     'technical_personel_phone'  => '+255 745 821 080',
                 ],

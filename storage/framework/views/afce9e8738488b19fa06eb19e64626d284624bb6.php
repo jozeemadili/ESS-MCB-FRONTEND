@@ -72,7 +72,7 @@
 							<div class="login-social-title">
 
 	                        </div>
-	                        <p><a class="ms-2" href="#" target="_blank">Mwalimu Cormmecial Bank PLC</a></p>
+	                        <p><a class="ms-2" href="#" target="_blank">UAT Mwalimu Cormmecial Bank PLC</a></p>
 	                    </form>
 	                </div>
 	            </div>

@@ -1,5 +1,5 @@
 # Laravel environment files
-# .env
+.env
 .env.*.php
 
 # Laravel vendor folder (dependencies)

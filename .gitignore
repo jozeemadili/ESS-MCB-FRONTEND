@@ -6,14 +6,14 @@
 /vendor
 
 # Laravel node modules
-/node_modules
+# /node_modules
 
 # Laravel storage logs and cache
-/storage/*.key
-/storage/*.log
-/storage/framework/cache/*
-/storage/framework/sessions/*
-/storage/framework/views/*
+# /storage/*.key
+# /storage/*.log
+# /storage/framework/cache/*
+# /storage/framework/sessions/*
+# /storage/framework/views/*
 
 # IDE files
 /.idea

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
+use App\Models\LOANAPPLICATION;
 
 class CustomersController extends Controller
 {
@@ -39,6 +40,19 @@ class CustomersController extends Controller
             return view('admin.customers.registration',['customers' => $customers]);
         }
         return $customers;
+    }
+    public static function resolveIdCustomerName($load_id)
+    {
+        $customer = LOANAPPLICATION::where('LOAN_ID', $load_id)
+    ->select('FIRST_NAME', 'MIDDLE_NAME', 'LAST_NAME')
+    ->first();
+
+        if ($customer) {
+            $Customer_name = trim("{$customer->FIRST_NAME} {$customer->MIDDLE_NAME} {$customer->LAST_NAME}");
+            return strtoupper($Customer_name);
+        } else {
+            return 'Customer not found';
+        }
     }
 
     public function search(Request $request)

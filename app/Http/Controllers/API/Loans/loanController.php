@@ -16,6 +16,9 @@ use App\Models\CUSTOMER;
 use App\Models\DisburmentApprovalStage;
 use App\Models\LOAN;
 use App\Models\LOANAPPLICATION;
+use App\Models\PAYMENT;
+use App\Models\PAYMENTADVICE;
+use App\Models\INCOMMINGPAYMENT;
 use App\TIRAClient\Scripts\Classes\EsbClient;
 use Exception;
 use Illuminate\Http\Request;
@@ -70,6 +73,33 @@ class loanController extends Controller
         }
         // $loans_datails= LOANAPPLICATION::whereTransaction_status('Pending')->orderBy('id','desc')->paginate(15);
         return view('admin.intermediaries.branches', ['loans' => $loans_datails]);   
+    }
+    public function getOutstandingBalanceRequest()
+    {
+        $payment_datails = PAYMENTADVICE::orderBy('PAYMENT_DATE', 'asc')->paginate(15);
+        return view('admin.loan_take_over.payment_balance_request', ['payment_datails' => $payment_datails]);   
+    }
+    public function getOutgoingPaymentDetails()
+    {
+        $payment_datails = PAYMENT::orderBy('CREATED_AT', 'asc')->paginate(15);
+        return view('admin.loan_take_over.out_going_payment_request', ['payment_datails' => $payment_datails]);   
+    }
+    public function getIncomingPaymentRequest()
+    {
+        $payment_datails = INCOMMINGPAYMENT::orderBy('PAYMENT_DATE', 'asc')->paginate(15);
+        return view('admin.loan_take_over.incoming_payment_request', ['payment_datails' => $payment_datails]);   
+    }
+    public function incomingPaymentprofile($load_id)
+    {
+        // dd($load_id);
+        $loan_details= LOANAPPLICATION::where('LOAN_ID',$load_id)->get();
+        $payment_details= INCOMMINGPAYMENT::where('LOAN_NUMBER',$load_id)->get();
+        $payment_new= PAYMENT::where('LOAN_ID',$load_id)->get();
+
+
+        return view('admin.properties.incoming-payment-profile',['loan_details' => $loan_details,'payment_details' => $payment_details, 'load_id' => $load_id,'payment_new'=>$payment_new]);
+        
+        
     }
     public function getAllChapchapLoans()
     {

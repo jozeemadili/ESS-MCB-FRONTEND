@@ -32,7 +32,7 @@
                     @endif
                     @if(Auth::user()->role == 'ADMIN' || Auth::user()->role == 'Credit Officer' || Auth::user()->role == 'Credit Admin' || Auth::user()->role == 'Credit Operation' || Auth::user()->role == 'Reports' || Auth::user()->role == 'Branch Operations')
                     <li class="dropdown">
-                        <a class="nav-link menu-title {{(request()->is('v1/intermediary/*')) ? 'active' : ''}}" href="javascript:void(0)"><i data-feather="link"></i><span>Loan</span></a>
+                        <a class="nav-link menu-title {{(request()->is('v1/intermediary/*')) ? 'active' : ''}}" href="javascript:void(0)"><i data-feather="link"></i><span>New Loan</span></a>
                         <ul class="nav-submenu menu-content" style="display: {{ (request()->is('v1/intermediary/*')) ? 'block' : '' }};">
                             <li><a href="{{route('loans-pending')}}" class="{{routeActive('loans-pending')}}">  - Waiting CO </a></li>
                             <li><a href="{{route('loans-accepted')}}" class="{{routeActive('loans-accepted')}}"> - Accepted By Bank</a></li> 
@@ -46,6 +46,14 @@
                             <li><a href="{{route('loans-cancelled')}}" class="{{routeActive('loans-cancelled')}}"> - Cancelled</a></li>
                             
                             <!-- <li><a href="{{route('loans-applications-topup')}}" class="{{routeActive('loans-applications-topup')}}"> - TopUp Applications</a></li> -->
+                        </ul>
+                    </li>
+                    <li class="dropdown">
+                        <a class="nav-link menu-title {{(request()->is('v1/intermediary/*')) ? 'active' : ''}}" href="javascript:void(0)"><i data-feather="link"></i><span>Take Over Loans</span></a>
+                        <ul class="nav-submenu menu-content" style="display: {{ (request()->is('v1/intermediary/*')) ? 'block' : '' }};">
+                            <li><a href="{{route('outstanding-balance-requests')}}" class="{{routeActive('outstanding-balance-requests')}}"> - Balance Outstanding Requests </a></li>
+                            <li><a href="{{route('incoming-payment-request')}}" class="{{routeActive('incoming-payment-request')}}"> - Incoming Payment Request</a></li> 
+                            <li><a href="{{route('outgoing-payment-request')}}" class="{{routeActive('outgoing-payment-request')}}"> - Outgoing Payment Request</a></li> 
                         </ul>
                     </li>
                     <li class="dropdown">

@@ -35,6 +35,12 @@ Route::group(['prefix' => 'v1/','middleware' => ['auth']], function()
     Route::get('loans/aplications/rejected', [loanController::class, 'getRejected'])->name('loans-rejected');
     Route::get('loans/aplications/cancelled', [loanController::class, 'getCancelled'])->name('loans-cancelled');
     Route::get('posted/cbs', [loanController::class, 'getPostCbs'])->name('posted-cbs');
+
+
+    Route::get('outstanding/balance/requests', [loanController::class, 'getOutstandingBalanceRequest'])->name('outstanding-balance-requests');
+    Route::get('incoming/payment/request', [loanController::class, 'getIncomingPaymentRequest'])->name('incoming-payment-request');
+    Route::get('outgoing/payment/request', [loanController::class, 'getOutgoingPaymentDetails'])->name('outgoing-payment-request');
+    Route::get('incoming/payament/profile/{loan_id}',[loanController::class, 'incomingPaymentprofile'])->name('incoming-payament-profile');
     
     Route::get('loans/pending', [loanController::class, 'getPending'])->name('loans-pending');
     Route::get('loans/pendingall', [loanController::class, 'getPendingAll'])->name('loans-pendingall');

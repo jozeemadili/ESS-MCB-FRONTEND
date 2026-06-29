@@ -66,6 +66,7 @@ class EsbClient
                 'base_uri' => $base_uri.'/',
                 'verify' => false, // Disable SSL certificate verification
             ]);
+            dd("url ".$base_uri);
             $request = new Request('POST', $path_url);
             $res = $client->sendAsync($request)->wait();
             // $result= $res->getBody();

@@ -130,7 +130,7 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white"><h5 class="modal-title">Record transfer to FSP1</h5><button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div>
-      <form method="post" action="{{ route('takeover-transfer-record') }}" enctype="multipart/form-data">
+      <form method="post" action="{{ route('takeover-transfer-record') }}" enctype="multipart/form-data" onsubmit="return tkBusy(this, 'Saving transfer…')">
         @csrf
         <div class="modal-body">
           <input type="hidden" name="application_number" id="tkTrApp">

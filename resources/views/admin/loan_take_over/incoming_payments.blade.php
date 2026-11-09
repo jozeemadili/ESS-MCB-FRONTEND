@@ -134,7 +134,7 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header text-white" id="tkConfirmHead"><h5 class="modal-title" id="tkConfirmTitle">Confirm payment</h5><button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div>
-      <form method="post" action="{{ route('takeover-payment-confirm') }}">
+      <form method="post" action="{{ route('takeover-payment-confirm') }}" onsubmit="return tkBusy(this, 'Sending to ESS…')">
         @csrf
         <div class="modal-body">
           <input type="hidden" name="id" id="tkConfirmId">

@@ -30,4 +30,27 @@
   .tk-mt{white-space:pre-wrap;word-break:break-all;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px;font-size:12px;max-height:55vh;overflow:auto;}
   @media (max-width:991px){.tk-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}}
   @media (max-width:575px){.tk-search input{min-width:0;width:100%;} .tk-search{width:100%;flex-wrap:wrap;}}
+  .tk-spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:tkspin .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes tkspin{to{transform:rotate(360deg);}}
 </style>
+<script>
+  // Shows a loader on the submit button, blocks double clicks and keeps the pop-up open until the page reloads.
+  function tkBusy(form, text) {
+    if (form.dataset.busy === '1') { return false; }
+    form.dataset.busy = '1';
+    form.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    var btn = form.querySelector('button[type=submit]');
+    if (btn) { btn.innerHTML = '<span class="tk-spin"></span>' + text; }
+    var modal = form.closest('.modal');
+    if (modal) {
+      modal.querySelectorAll('[data-bs-dismiss=modal]').forEach(function (b) { b.disabled = true; });
+      modal.setAttribute('data-bs-backdrop', 'static');
+      modal.setAttribute('data-bs-keyboard', 'false');
+    }
+    return true;
+  }
+  // Pop-ups reopen clean after the browser's back/forward cache
+  window.addEventListener('pageshow', function () {
+    document.querySelectorAll('form[data-busy="1"]').forEach(function (f) { f.dataset.busy = ''; });
+  });
+</script>

@@ -165,8 +165,27 @@ class Calculator extends Component
         $loan = LOANAPPLICATION::find($this->loanId);
         return view('livewire.components.restructure.calculator', [
             'loan'       => $loan,
-            'instalment' => \App\Http\Livewire\Components\Vehicle\Details::instalment($loan),
+            'instalment' => self::instalment($loan),
             'canSend'    => Auth::user()->role == 'Credit Officer',
         ]);
+    }
+
+    /**
+     * Current monthly instalment (same rule as the loan profile): MONTHLY_DEDUCTION holds the instalment for loans booked
+     * since Nov 2026 but the employee's total deductions for older loans, so it is used only when it is not above
+     * TOTAL_AMOUNT_TO_PAY / TENURE. Kept here because the profile component's folder is "vehicle" (lowercase), which the
+     * case-sensitive autoloader on Linux cannot resolve from App\...\Vehicle\Details.
+     */
+    private static function instalment($loan)
+    {
+        if ($loan == null) {
+            return 0;
+        }
+        $monthly = (float) $loan->MONTHLY_DEDUCTION;
+        if (empty($loan->TOTAL_AMOUNT_TO_PAY) || empty($loan->TENURE)) {
+            return $monthly;
+        }
+        $totalOverTenure = (float) $loan->TOTAL_AMOUNT_TO_PAY / (int) $loan->TENURE;
+        return ($monthly > 0 && $monthly <= $totalOverTenure + 1) ? $monthly : $totalOverTenure;
     }
 }

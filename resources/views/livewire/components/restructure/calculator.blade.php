@@ -94,6 +94,12 @@
             <label for="rc-inst">New monthly instalment (TZS)</label>
             <input id="rc-inst" type="number" min="1" step="0.01" class="form-control" wire:model.defer="installment" placeholder="e.g. 50000">
             <div class="rc-hint">The shortest tenure whose instalment does not exceed this amount is used.</div>
+            @if(!empty($s['highestInstalment']))
+              <div class="rc-hint" style="color:#0d47a1;font-weight:600">
+                Accepted for this loan: {{ number_format($s['lowestInstalment']) }} ({{ $s['allowedMaxTenure'] }} months) up to {{ number_format($s['highestInstalment']) }} ({{ $s['allowedMinTenure'] }} months).
+                Any amount above {{ number_format($s['highestInstalment']) }} gives the same {{ $s['allowedMinTenure'] }}-month result.
+              </div>
+            @endif
             @error('installment')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
           @endif
 
@@ -148,6 +154,9 @@
       <div class="rc-b">
         @if($error)
           <div class="alert alert-danger outline" role="alert"><i class="fa fa-exclamation-triangle"></i> {{ $error }}</div>
+        @endif
+        @if($r && !empty($r['notice']))
+          <div class="alert alert-light-warning" role="alert" style="border-radius:10px"><i class="fa fa-info-circle"></i> {{ $r['notice'] }}</div>
         @endif
 
         @if($r)

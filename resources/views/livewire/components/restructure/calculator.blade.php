@@ -107,9 +107,34 @@
         <div class="rc-note">
           Calculated by the ESS gateway with the same rules as <b>LOAN_RESTRUCTURE_AFFORDABILITY_REQUEST</b>:
           the principal balance from core banking is re-spread at the product rate
-          ({{ $s['interestRate'] ?? '—' }}% · product {{ $s['productCode'] ?? '' }}), plus a {{ $s['processingFeeRate'] ?? '—' }}% processing fee on the principal.
+          ({{ $s['interestRate'] ?? '—' }}% · product {{ $s['productCode'] ?? '' }}).
+          <b>No processing fee</b> is charged: it does not apply when MCB initiates the restructure.
           Nothing is sent to ESS until you press <b>Send proposal</b>.
         </div>
+      </div>
+    </div>
+
+    {{-- Balance, exactly as answered to ESS in LOAN_RESTRUCTURE_BALANCE_RESPONSE --}}
+    @php $bal = $s['balance'] ?? null; @endphp
+    <div class="rc-card">
+      <div class="rc-h"><h6><i class="fa fa-file-text-o" style="color:#0d47a1"></i> Loan balance</h6><small>As in LOAN_RESTRUCTURE_BALANCE_RESPONSE</small></div>
+      <div class="rc-b">
+        @if($bal)
+          <table class="rc-cmp">
+            <tbody>
+              <tr><td>Loan Number</td><td style="font-family:SFMono-Regular,Menlo,Consolas,monospace;font-size:12px">{{ $bal['LoanNumber'] }}</td></tr>
+              <tr><td>Instalment Amount</td><td>{{ $money($bal['InstallmentAmount']) }}</td></tr>
+              <tr class="hl"><td><b>Principal Balance</b></td><td class="new">{{ $money($bal['PrincipalBalance']) }}</td></tr>
+              <tr><td>Outstanding Balance</td><td>{{ $money($bal['OutstandingBalance']) }}</td></tr>
+              <tr><td>Last Repayment Date</td><td>{{ \Illuminate\Support\Str::of($bal['LastRepaymentDate'])->before('T') }}</td></tr>
+              <tr><td>Maturity Date</td><td>{{ \Illuminate\Support\Str::of($bal['MaturityDate'])->before('T') }}</td></tr>
+              <tr><td>Validity Date</td><td>{{ str_replace('T', ' ', $bal['ValidityDate']) }}</td></tr>
+            </tbody>
+          </table>
+          <div class="rc-hint mt-2">The new terms re-spread the <b>Principal Balance</b>. Outstanding Balance includes the 1% payoff margin.</div>
+        @else
+          <div class="rc-note">The balance is not available{{ $error ? ': '.$error : '' }}.</div>
+        @endif
       </div>
     </div>
   </div>
@@ -139,7 +164,7 @@
               <tr class="hl"><td>Tenure (months)</td><td>{{ $loan->TENURE ?? '—' }}</td><td class="new">{{ $r['newTenure'] ?? '—' }}</td></tr>
               <tr><td>Principal to restructure</td><td>{{ $money($s['principalBalance'] ?? null) }}</td><td class="new">{{ $money($r['newPrincipal'] ?? null) }}</td></tr>
               <tr><td>Interest</td><td>—</td><td class="new">{{ $money($r['interest'] ?? null) }}</td></tr>
-              <tr><td>Processing fee ({{ $s['processingFeeRate'] ?? '' }}%)</td><td>—</td><td class="new">{{ $money($r['processingFee'] ?? null) }}</td></tr>
+              <tr><td>Processing fee</td><td>—</td><td class="new">{{ $money($r['processingFee'] ?? 0) }}<br><span class="rc-note" style="font-weight:500">Not applicable (MCB-initiated)</span></td></tr>
               <tr class="hl"><td><b>Total amount to pay</b></td><td>{{ $money($loan->TOTAL_AMOUNT_TO_PAY) }}</td><td class="new">{{ $money($r['totalAmountToPay'] ?? null) }}</td></tr>
               <tr><td>Maturity / last repayment</td><td>{{ $s['maturityDate'] ?? '—' }}</td>
                 <td class="new">{{ isset($r['newTenure']) ? now()->addMonths((int) $r['newTenure'])->format('Y-m') . ' (approx.)' : '—' }}</td></tr>

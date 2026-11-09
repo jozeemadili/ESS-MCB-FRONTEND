@@ -19,6 +19,12 @@
   @include('admin.loan_take_over._style')
 
 <div class="container-fluid tk">
+  @foreach ($errors->all() as $error)
+    <div class="alert alert-danger outline alert-dismissible fade show" role="alert">{{ $error }}<button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button></div>
+  @endforeach
+  @if($message = Session::get('success'))
+    <div class="alert alert-success outline alert-dismissible fade show" role="alert">{!! $message !!}<button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button></div>
+  @endif
   <p class="text-muted" style="font-size:12.5px;margin-top:-6px">
     <b>MCB takes over</b> these loans from another bank (FSP1) (<i>LOAN_TAKEOVER_OFFER_REQUEST</i>). They follow the normal approval flow; at the
     <b>Credit Operation</b> step the transfer to FSP1 is recorded (reference, MT advice, PDF) and ESS is notified with <i>TAKEOVER_DISBURSEMENT_NOTIFICATION</i>.
@@ -81,7 +87,16 @@
                     @if($p->PAYMENT_ADVICE)<button type="button" class="btn btn-outline-secondary tk-btn" data-bs-toggle="modal" data-bs-target="#mtModal" data-advice="{{ $p->PAYMENT_ADVICE }}" onclick="tkShowMt(this)">MT</button>@endif
                     @if($p->PAYMENT_ADVICE_ATTACHMENT)<a class="btn btn-outline-secondary tk-btn" target="_blank" href="{{ route('takeover-outgoing-advice-pdf', ['id' => $p->ID]) }}">PDF</a>@endif
                   </span>
-                @else<span class="tk-sub">Recorded by Credit Operation at approval</span>@endif
+                @else<span class="tk-sub">Not recorded yet</span>@endif
+                @php $canPay = $canRecord && $loan && $loan->TRANSACTION_STATUS === 'Approved' && $p->STATUS !== 'NOTIFIED'; @endphp
+                @if($canPay)
+                  <span class="tk-sub" style="margin-top:6px"><button type="button" class="btn {{ $p->CBS_REFERENCE ? 'btn-outline-primary' : 'btn-primary' }} tk-btn" data-bs-toggle="modal" data-bs-target="#transferModal"
+                    data-app="{{ $p->APPLICATION_NUMBER }}" data-amount="{{ (float) $p->TAKE_OVER_AMOUNT }}" data-ref="{{ $p->CBS_REFERENCE }}"
+                    data-payto="{{ $p->FSP1_BANK_ACCOUNT_NAME }} · {{ $p->FSP1_BANK_ACCOUNT }} · {{ $p->FSP1_SWIFT_CODE }}" data-fspref="{{ $p->FSP1_PAYMENT_REFERENCE_NUMBER }}"
+                    onclick="tkTransfer(this)"><i class="fa fa-upload"></i> {{ $p->CBS_REFERENCE ? 'Update transfer' : 'Record transfer' }}</button></span>
+                @elseif($loan && $p->STATUS === 'RECEIVED' && !in_array($loan->TRANSACTION_STATUS, ['Approved', 'Rejected']) && !in_array($loan->LOAN_STATUS, ['Cancelled', 'Rejected']))
+                  <span class="tk-sub">Pay after employer approval</span>
+                @endif
               </td>
               <td style="min-width:140px">
                 @if($p->STATUS === 'NOTIFIED')<span class="tk-pill ok">Completed</span><span class="tk-sub">ESS notified {{ optional($local($p->NOTIFIED_DATE))->format('d M H:i') }}</span>
@@ -111,7 +126,50 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="transferModal" tabindex="-1" aria-hidden="true" style="display:none;">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white"><h5 class="modal-title">Record transfer to FSP1</h5><button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <form method="post" action="{{ route('takeover-transfer-record') }}" enctype="multipart/form-data">
+        @csrf
+        <div class="modal-body">
+          <input type="hidden" name="application_number" id="tkTrApp">
+          <div class="alert alert-light-primary" style="font-size:12.5px">
+            Make the fund transfer manually in Profits/TISS first, then record it here.<br>
+            Application <b id="tkTrAppText"></b> · pay to <b id="tkTrPayTo"></b> · their reference <b id="tkTrFspRef"></b>
+          </div>
+          <div class="row">
+            <div class="col-md-7"><label class="col-form-label">Payment reference (TISS / transfer)</label>
+              <input class="form-control" type="text" name="transfer_reference" id="tkTrRef" maxlength="60" required></div>
+            <div class="col-md-5"><label class="col-form-label">Amount paid (TZS)</label>
+              <input class="form-control" type="number" step="0.01" min="1" name="paid_amount" id="tkTrAmount" required></div>
+          </div>
+          <label class="col-form-label">SWIFT copy (PDF, max 5 MB)</label>
+          <input class="form-control" type="file" name="swift_copy" accept="application/pdf" required>
+          <details class="mt-3"><summary style="font-size:12.5px;cursor:pointer">Payment advice text (optional — MT103 is generated from the reference if left empty)</summary>
+            <textarea class="form-control mt-2" name="payment_advice" rows="6" style="font-family:SFMono-Regular,Menlo,Consolas,monospace;font-size:12px" placeholder="{1:F01MWCOTZTZAXXX}{2:I103...}{4: ... -}"></textarea>
+          </details>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" type="submit"><i class="fa fa-upload"></i> Save transfer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 @push('scripts')
-<script>function tkShowMt(btn) { document.getElementById('tkMtText').textContent = btn.dataset.advice; }</script>
+<script>
+  function tkShowMt(btn) { document.getElementById('tkMtText').textContent = btn.dataset.advice; }
+  function tkTransfer(btn) {
+    document.getElementById('tkTrApp').value = btn.dataset.app;
+    document.getElementById('tkTrAppText').textContent = btn.dataset.app;
+    document.getElementById('tkTrPayTo').textContent = btn.dataset.payto;
+    document.getElementById('tkTrFspRef').textContent = btn.dataset.fspref;
+    document.getElementById('tkTrAmount').value = btn.dataset.amount;
+    document.getElementById('tkTrRef').value = btn.dataset.ref || '';
+  }
+</script>
 @endpush
 @endsection

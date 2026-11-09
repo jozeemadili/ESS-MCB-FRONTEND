@@ -93,18 +93,4 @@ class PAYMENT extends Model
 		}
 		return self::where('LOAN_ID', $loan->LOAN_ID)->orderByDesc('ID')->first();
 	}
-
-	/** Draft MT103 for the transfer to FSP1 (Credit Operation replaces it with the real advice if different). */
-	public function draftMt103($loan, string $reference = 'REFERENCE'): string
-	{
-		$amount = number_format((float) $this->TAKE_OVER_AMOUNT, 2, ',', '');
-		return '{1:F01MWCOTZTZAXXX}{2:I103' . str_pad(substr((string) $this->FSP1_SWIFT_CODE, 0, 8), 8, 'X') . 'XXXXN}{4:'
-			. "\n:20:" . $reference
-			. "\n:23B:CRED"
-			. "\n:32A:" . now('Africa/Dar_es_Salaam')->format('ymd') . 'TZS' . $amount
-			. "\n:50K:/" . config('ess.settlement_account', '001000347312') . "\nMWALIMU COMMERCIAL BANK PLC"
-			. "\n:59:/" . $this->FSP1_BANK_ACCOUNT . "\n" . $this->FSP1_BANK_ACCOUNT_NAME
-			. "\n:70:" . $this->FSP1_PAYMENT_REFERENCE_NUMBER . ' TAKEOVER LOAN ' . $this->FSP1_LOAN_NUMBER
-			. "\n:71A:OUR\n-}";
-	}
 }

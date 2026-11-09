@@ -318,7 +318,10 @@
             @if($tkOut && $tkOut->CBS_REFERENCE)
               <span class="mono">{{ $tkOut->CBS_REFERENCE }}</span> · {{ $money($tkOut->PAID_AMOUNT) }} · {{ $tkOut->PAID_BY }}
               @if($tkOut->PAYMENT_ADVICE_ATTACHMENT)<a href="{{ route('takeover-outgoing-advice-pdf', ['id' => $tkOut->ID]) }}" target="_blank">PDF</a>@endif
-            @else — recorded by Credit Operation at approval @endif</dd></div>
+            @else — not recorded yet @endif
+            @if($vehicle->TRANSACTION_STATUS === 'Approved' && ($tkOut->STATUS ?? null) !== 'NOTIFIED')
+              <a class="btn btn-sm btn-outline-primary" style="border-radius:8px;margin-left:6px" href="{{ route('outgoing-payment-request', ['filter' => 'all', 'q' => $vehicle->APPLICATION_NUMBER]) }}"><i class="fa fa-upload"></i> {{ ($tkOut && $tkOut->CBS_REFERENCE) ? 'Update transfer' : 'Record transfer' }}</a>
+            @endif</dd></div>
           @if($tkOut && $tkOut->STATUS_DESCRIPTION)<div class="lp-f"><dt>Note</dt><dd style="color:#b45309">{{ $tkOut->STATUS_DESCRIPTION }}</dd></div>@endif
         </dl>
       </div>
@@ -905,7 +908,7 @@ WITH POPUP -->
             </div>
             <div class="modal-body">
                 
-                <form action="{{ Route('update-staff') }}" method="post" enctype="multipart/form-data">
+                <form action="{{ Route('update-staff') }}" method="post">
                     @csrf
 
                     <div class="row">
@@ -920,30 +923,17 @@ WITH POPUP -->
                         @if($vehicle->LOAN_TYPE === 'TAKEOVER' && Auth::user()->role == 'Credit Operation' && isset($approval_datils) && $approval_datils->status == 'INITIATED')
                         @php $tkPay = \App\Models\PAYMENT::forLoan($vehicle); @endphp
                         <div class="col-lg-12">
-                          <div class="alert alert-light-warning" style="font-size:12.5px">
-                            <b>Takeover:</b> pay <b>TZS {{ number_format((float) ($tkPay->TAKE_OVER_AMOUNT ?? 0), 2) }}</b> to
-                            <b>{{ $tkPay->FSP1_BANK_ACCOUNT_NAME ?? 'FSP1' }}</b> ({{ $tkPay->FSP1_BANK_ACCOUNT ?? '' }}, {{ $tkPay->FSP1_SWIFT_CODE ?? '' }}),
-                            reference <b>{{ $tkPay->FSP1_PAYMENT_REFERENCE_NUMBER ?? '' }}</b>, and disburse the rest to the employee in Profits first.
-                            The advice below is sent to ESS (TAKEOVER_DISBURSEMENT_NOTIFICATION).
-                          </div>
-                          <div class="row">
-                            <div class="col-md-7 form-group">
-                              <label class="col-form-label">Transfer reference (TISS / core banking)</label>
-                              <input class="form-control" type="text" name="transfer_reference" maxlength="60" required value="{{ old('transfer_reference') }}">
+                          @if($tkPay && $tkPay->CBS_REFERENCE && $tkPay->PAYMENT_ADVICE_ATTACHMENT)
+                            <div class="alert alert-light-success" style="font-size:12.5px">
+                              <b>Takeover:</b> transfer to FSP1 recorded — reference <b>{{ $tkPay->CBS_REFERENCE }}</b>, TZS {{ number_format((float) $tkPay->PAID_AMOUNT, 2) }} by {{ $tkPay->PAID_BY }}.
+                              Approving sends the SWIFT copy to ESS (TAKEOVER_DISBURSEMENT_NOTIFICATION).
                             </div>
-                            <div class="col-md-5 form-group">
-                              <label class="col-form-label">Amount paid to FSP1 (TZS)</label>
-                              <input class="form-control" type="number" step="0.01" min="1" name="paid_amount" required value="{{ old('paid_amount', $tkPay->TAKE_OVER_AMOUNT ?? '') }}">
+                          @else
+                            <div class="alert alert-light-danger" style="font-size:12.5px">
+                              <b>Takeover:</b> record the manual transfer to FSP1 (payment reference + SWIFT copy) before approving —
+                              <a href="{{ route('outgoing-payment-request', ['filter' => 'all', 'q' => $vehicle->APPLICATION_NUMBER]) }}">Take Over Loans → Outgoing Payments → Record transfer</a>.
                             </div>
-                          </div>
-                          <div class="form-group">
-                            <label class="col-form-label">Payment advice (MT103 / ISO 20022) — draft, edit to match the real transfer</label>
-                            <textarea class="form-control" name="payment_advice" rows="7" required style="font-family:SFMono-Regular,Menlo,Consolas,monospace;font-size:12px">{{ old('payment_advice', $tkPay ? $tkPay->draftMt103($vehicle) : '') }}</textarea>
-                          </div>
-                          <div class="form-group">
-                            <label class="col-form-label">Payment advice PDF (max 5 MB)</label>
-                            <input class="form-control" type="file" name="advice_pdf" accept="application/pdf" required>
-                          </div>
+                          @endif
                         </div>
                         @endif
                         <div class="col-lg-12">

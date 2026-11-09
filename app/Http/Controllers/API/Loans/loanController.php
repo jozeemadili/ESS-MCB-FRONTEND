@@ -141,7 +141,44 @@ class loanController extends Controller
                 ->orWhere('FSP1_LOAN_NUMBER', 'like', "%$search%")->orWhere('FSP1_CODE', 'like', "%$search%"));
         }
         $payments = $query->orderByDesc('ID')->paginate($perPage)->withQueryString();
-        return view('admin.loan_take_over.outgoing_payments', compact('payments', 'filters', 'filter', 'search', 'perPage', 'counts'));
+        $canRecord = in_array(Auth::user()->role, ['Credit Operation', 'Credit Admin', 'ADMIN']);
+        return view('admin.loan_take_over.outgoing_payments', compact('payments', 'filters', 'filter', 'search', 'perPage', 'counts', 'canRecord'));
+    }
+
+    /**
+     * Takeover (MCB = FSP2): after paying FSP1 manually in Profits/TISS, record the payment reference and the SWIFT copy.
+     * Saved through the gateway (takeover/outgoing-payment); Credit Operation approval then notifies ESS.
+     */
+    public function recordTakeoverTransfer(Request $request)
+    {
+        $request->validate([
+            'application_number' => ['required', 'string', 'max:30'],
+            'transfer_reference' => ['required', 'string', 'max:60'],
+            'paid_amount'        => ['required', 'numeric', 'min:1'],
+            'swift_copy'         => ['required', 'file', 'mimes:pdf', 'max:5120'],
+            'payment_advice'     => ['nullable', 'string', 'max:20000'],
+        ], [], ['transfer_reference' => 'payment reference', 'swift_copy' => 'SWIFT copy (PDF)']);
+        if (!in_array(Auth::user()->role, ['Credit Operation', 'Credit Admin', 'ADMIN'])) {
+            return back()->with('success', '<b>FAILED</b>, your role cannot record takeover transfers.');
+        }
+        $body = json_encode([
+            'applicationNumber' => $request->application_number,
+            'transferReference' => $request->transfer_reference,
+            'paidAmount'        => (float) $request->paid_amount,
+            'swiftCopyBase64'   => base64_encode(file_get_contents($request->file('swift_copy')->getRealPath())),
+            'paymentAdvice'     => (string) $request->payment_advice,
+            'recordedBy'        => self::userDisplayName(),
+        ]);
+        try {
+            $response = EsbClient::SendesbRequestbody($body, 'takeover/outgoing-payment');
+        } catch (Exception $e) {
+            return back()->with('success', '<b>FAILED</b>, the ESS gateway is not reachable: ' . e($e->getMessage()));
+        }
+        if ($response != null && isset($response->statusCode) && $response->statusCode === 200) {
+            return back()->with('success', '<b>SUCCESS</b>, ' . e($response->statusDescription));
+        }
+        $description = ($response != null && isset($response->statusDescription)) ? $response->statusDescription : 'No response from the ESS gateway';
+        return back()->with('success', '<b>FAILED</b>, ' . e($description));
     }
 
     /** PDF payment advice of MCB's transfer to FSP1. */
@@ -781,28 +818,6 @@ class loanController extends Controller
             elseif(Auth::user()->role == 'Credit Operation')
             {
                 // $endPoint='http://172.16.3.198:30002/api/v2/hmcis/disbursement/'.$request->id.'';
-                // Takeover (MCB = FSP2): record the transfer to FSP1 first; the gateway sends its advice to ESS
-                $takeoverLoan = LOANAPPLICATION::find($request->id);
-                if ($takeoverLoan && $takeoverLoan->LOAN_TYPE === 'TAKEOVER') {
-                    $request->validate([
-                        'transfer_reference' => ['required', 'string', 'max:60'],
-                        'paid_amount'        => ['required', 'numeric', 'min:1'],
-                        'payment_advice'     => ['required', 'string', 'max:20000'],
-                        'advice_pdf'         => ['required', 'file', 'mimes:pdf', 'max:5120'],
-                    ], [], ['transfer_reference' => 'transfer reference (TISS / core banking)', 'advice_pdf' => 'payment advice PDF']);
-                    $payment = PAYMENT::forLoan($takeoverLoan);
-                    if (!$payment) {
-                        return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', '<b>FAILED</b>, the FSP1 payment details of this takeover were not found.');
-                    }
-                    $payment->CBS_REFERENCE = $request->transfer_reference;
-                    $payment->PAID_AMOUNT = $request->paid_amount;
-                    $payment->PAID_DATE = now('Africa/Dar_es_Salaam')->format('Y-m-d H:i:s');
-                    $payment->PAID_BY = self::userDisplayName();
-                    $payment->PAYMENT_ADVICE = $request->payment_advice;
-                    $payment->PAYMENT_ADVICE_ATTACHMENT = base64_encode(file_get_contents($request->file('advice_pdf')->getRealPath()));
-                    $payment->STATUS = 'PAID';
-                    $payment->save();
-                }
                 $endPoint='disbursement/'.$request->id.'';
                 $response = EsbClient::SendesbRequesturl($endPoint); 
                 $status = $response->status;

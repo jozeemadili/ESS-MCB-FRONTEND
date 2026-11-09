@@ -1,344 +1,465 @@
-<div class="rowx">
-    <div class="col-lg-12">
-    <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-primary">Identification Details</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <ul class="list-group">
+<div class="lp">
+@php
+    use Carbon\Carbon;
+    $TZ = 'Africa/Dar_es_Salaam';
+    $v = fn ($x) => ($x === null || $x === '') ? '—' : $x;
+    $money = fn ($x) => number_format((float) $x, 2, '.', ',');
+    $dt = function ($x, $withTime = false) use ($TZ) {
+        if ($x === null || $x === '') return '—';
+        try { $c = $x instanceof \DateTimeInterface ? Carbon::instance($x) : Carbon::parse($x); } catch (\Throwable $e) { return $x; }
+        return $c->format($withTime ? 'd M Y, H:i' : 'd M Y');
+    };
+    // Gateway (Java) dates are saved in local time; portal approval-stage dates are saved in UTC.
+    $local = function ($x) use ($TZ) {
+        if (empty($x)) return null;
+        $raw = $x instanceof \DateTimeInterface ? $x->format('Y-m-d H:i:s') : (string) $x;
+        return Carbon::parse(substr($raw, 0, 19), $TZ);
+    };
+    $utc = fn ($x) => empty($x) ? null : Carbon::parse(($x instanceof \DateTimeInterface ? $x->format('Y-m-d H:i:s') : substr((string) $x, 0, 19)), 'UTC')->setTimezone($TZ);
+    $dur = function (?int $mins) {
+        if ($mins === null) return null;
+        if ($mins < 1) return 'under 1 min';
+        if ($mins < 60) return $mins.' min';
+        if ($mins < 1440) return intdiv($mins, 60).'h '.($mins % 60).'m';
+        return intdiv($mins, 1440).'d '.intdiv($mins % 1440, 60).'h';
+    };
+    $tone = fn (?int $mins) => $mins === null ? 'mut' : ($mins <= 1440 ? 'ok' : ($mins <= 4320 ? 'warn' : 'bad'));
 
-                        <li class="list-group-item d-flex justify-content-between align-items-center">ID<span class="badge badge-primary rounded-pill">{{ $vehicle->ID }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Application NO<span class="badge badge-primary rounded-pill">{{ $vehicle->APPLICATION_NUMBER }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Customer ID<span class="badge badge-primary rounded-pill">{{ $vehicle->CUSTOMER_ID }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Vote Code<span class="badge badge-primary rounded-pill">{{ $vehicle->VOTE_CODE }}</span></li>
- 
-                    </ul>
-                    </div>
-                    
-                    <div class="col-lg-6">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Loan ID<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_ID }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Reference NO<span class="badge badge-primary rounded-pill">{{ $vehicle->REFERENCE_NUMBER }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Check NO<span class="badge badge-primary rounded-pill">{{ $vehicle->CHECK_NUMBER }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Vote Name<span class="badge badge-primary rounded-pill">{{ $vehicle->VOTE_NAME }}</span></li>
-                 
-                        </ul>
-                    </div>
-                    </div>
-                </div>
-     </div>
-     <!-- end ribon -->
-     <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-primary">Applicant Information</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <ul class="list-group">
-                        <li class="list-group-item d-flex justify-content-between align-items-center">First Name.<span class="badge badge-primary rounded-pill">{{ $vehicle->FIRST_NAME }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Middle  Name.<span class="badge badge-primary rounded-pill">{{ $vehicle->MIDDLE_NAME }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Last Name<span class="badge badge-primary rounded-pill">{{  $vehicle->LAST_NAME }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Email<span class="badge badge-primary rounded-pill">{{ $vehicle->EMAIL_ADDRESS}}</span></li>           
-                    </ul>
-                    </div>
-                    <div class="col-lg-6">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Phone<span class="badge badge-primary rounded-pill">{{ $vehicle->MSISDN }}</span></l>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">National ID<span class="badge badge-primary rounded-pill">{{ $vehicle->NATIONAL_ID }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">physical Address<span class="badge badge-primary rounded-pill">{{ $vehicle->PHYSICAL_ADDRESS }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Gender<span class="badge badge-primary rounded-pill">{{ $vehicle->SEX }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Marital Status<span class="badge badge-primary rounded-pill">{{ $vehicle->MARITAL_STATUS }}</span></li>
-                         </ul>
-                    </div>
-                    </div>
-                </div>
-     </div>
-     <!-- end ribon -->
-     <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-primary">Employment Details</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Employment Date<span class="badge badge-primary rounded-pill">{{ $vehicle->EMPLOYMENT_DATE }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Months to Retire<span class="badge badge-primary rounded-pill">{{ $vehicle->RETIREMENT_DATE }} (Months)</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Terms Of Employment<span class="badge badge-primary rounded-pill">{{ $vehicle->TERMS_OF_EMPLOYMENT }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Designation Code<span class="badge badge-primary rounded-pill">{{ $vehicle->DESIGNATION_CODE }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Designation Name<span class="badge badge-primary rounded-pill">{{ $vehicle->DESIGNATION_NAME }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Confirmation Date<span class="badge badge-primary rounded-pill">{{ $vehicle->CONFIRMATION_DATE}}</span></l>
-                    
+    $tx = strtolower((string) $vehicle->TRANSACTION_STATUS);
+    $ls = strtolower((string) $vehicle->LOAN_STATUS);
+    $pill = fn ($s) => match (strtolower((string) $s)) {
+        'approved', 'accepted' => 'blue', 'disbursed', 'posted to cbs', 'active', 'complete' => 'green',
+        'pending', 'initiated' => 'grey', 'restructured' => 'purple', default => 'red'
+    };
 
-                          </ul>
-                    </div>
-                    <div class="col-lg-6">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Basic Salary<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->BASIC_SALARY, 2,'.',',') }} TZS</span></l>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Net Salary<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->NET_SALARY, 2,'.',',') }} TZS</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">One Third Salary<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->ONE_THIRD_AMOUNT, 2,'.',',') }} TZS</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Total Employement Deduction<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->TOTAL_EMPLOYMENT_DEDUCTION, 2,'.',',') }} TZS</span></li>
-                            @if(isset($vehicle->CONTRACT_START_DATE))
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Contract Start Date<span class="badge badge-primary rounded-pill">{{ $vehicle->CONTRACT_START_DATE->format('d M Y') }}</span></li>
-                            @else
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Contract Start Date<span class="badge badge-primary rounded-pill"></span></li>
-                            @endif
-                            @if(isset($vehicle->CONTRACT_END_DATE))
-                            <li class="list-group-item d-flex justify-content-between align-items-center">CONTRACT_END_DATE<span class="badge badge-primary rounded-pill">{{ $vehicle->CONTRACT_END_DATE->format('d M Y') }}</span></li>
-                            @else
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Contract End Date<span class="badge badge-primary rounded-pill"></span></li>
-                            @endif
-                        </ul>
-                    </div>
-                    </div>
-                </div>
-     </div>
-     <!-- end ribon -->
-     <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-primary">Loan Details</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Loan Type<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_TYPE }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Loan Status<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_STATUS }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Loan Purpose<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_PURPOSE }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Requested Amount<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->REQUESTED_AMOUNT, 2,'.',',') }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Loan Reference<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_REFERENCE }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Loan Tenure<span class="badge badge-primary rounded-pill">{{ $vehicle->TENURE }} (Months)</span></li>
+    // ---------- Approval timeline (read only: built from the dates already saved on the loan) ----------
+    $stages = \App\Models\DisburmentApprovalStage::where('loan_id', $vehicle->ID)->orderBy('id')->get();
+    $userIds = $stages->pluck('initiator_id')->merge($stages->pluck('checker_id'))->filter()->unique();
+    $users = $userIds->isEmpty() ? collect() : \App\Models\User::whereIn('id', $userIds)->get()->keyBy('id');
+    $who = function ($id) use ($users) {
+        if (!$id || !isset($users[$id])) return null;
+        $f = trim((string) $users[$id]->first_name); $l = trim((string) $users[$id]->last_name);
+        return ($l === '' || stripos($f, $l) !== false) ? $f : trim($f.' '.$l);
+    };
 
-                          </ul>
-                    </div>
-                    <div class="col-lg-6">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Total Amount<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->TOTAL_AMOUNT, 2,'.',',') }} TZS</span></l>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Total Amount To Pay<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->TOTAL_AMOUNT_TO_PAY, 2,'.',',') }} TZS</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Out Standing Balance<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->OUT_STANDING_BALANCE, 2,'.',',') }} TZS</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Desired Deduction Amount<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->DESIRED_DEDUCTION_AMOUNT, 2,'.',',') }} TZS</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Application Date<span class="badge badge-primary rounded-pill">{{ $vehicle->APPLICATION_DATE->format('d M Y') }}</span></li>
-                            @if(isset($vehicle->INSTALMENT_START_DATE))
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Installment Start Date<span class="badge badge-primary rounded-pill">{{ $vehicle->INSTALMENT_START_DATE}}</span></li>
-                            @else
-                            <li class="list-group-item d-flex justify-content-between align-items-center">Installment Start Date<span class="badge badge-primary rounded-pill"></span></li>
-                            @endif
-                         
-                  
-                        </ul>
-                    </div>
-                    </div>
-                </div>
-     </div>
-     <!-- end ribon -->
-       <!-- end ribon -->
-     @if($vehicle->LOAN_TYPE === 'RESTRUCTURING')
-     @php
-        $oldInstalment = \App\Http\Livewire\Components\Vehicle\Details::instalment($original_loan);
-        $newInstalment = \App\Http\Livewire\Components\Vehicle\Details::instalment($vehicle);
-        $principal = !empty($vehicle->SETTLEMENT_AMOUNT) ? (float) $vehicle->SETTLEMENT_AMOUNT : (float) $vehicle->REQUESTED_AMOUNT;
-     @endphp
-     <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-warning">Restructure: Old vs New Terms</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <h6 class="mt-2">Existing loan</h6>
-                    <ul class="list-group">
-                        @if($original_loan)
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Original Loan<span><a href="{{ Route('staff-profile', ['id' => $original_loan->ID]) }}" class="badge badge-primary rounded-pill">{{ $original_loan->LOAN_ID }}</a></span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Original Amount<span class="badge badge-primary rounded-pill">{{ number_format($original_loan->TOTAL_AMOUNT, 2,'.',',') }} TZS</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Original Tenure<span class="badge badge-primary rounded-pill">{{ $original_loan->TENURE }} (Months)</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Current Instalment<span class="badge badge-primary rounded-pill">{{ number_format($oldInstalment, 2,'.',',') }} TZS</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Current Maturity<span class="badge badge-primary rounded-pill">{{ $original_loan->MATURITY_DATE ? $original_loan->MATURITY_DATE->format('d M Y') : '' }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Original Loan Status<span class="badge badge-primary rounded-pill">{{ $original_loan->TRANSACTION_STATUS }}</span></li>
-                        @else
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Original Loan<span class="badge badge-danger rounded-pill">{{ $vehicle->ORIGINAL_LOAN_ID ?? 'Not set' }} (not found)</span></li>
-                        @endif
-                    </ul>
-                    </div>
-                    <div class="col-lg-6">
-                    <h6 class="mt-2">After restructure</h6>
-                    <ul class="list-group">
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Principal Restructured<span class="badge badge-primary rounded-pill">{{ number_format($principal, 2,'.',',') }} TZS</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">New Tenure<span class="badge badge-primary rounded-pill">{{ $vehicle->TENURE }} (Months)</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">New Instalment<span class="badge badge-primary rounded-pill">{{ number_format($newInstalment, 2,'.',',') }} TZS</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Processing Fee<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->PROCESSING_FEE, 2,'.',',') }} TZS</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Total Amount To Pay (incl. fee)<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->TOTAL_AMOUNT_TO_PAY, 2,'.',',') }} TZS</span></li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">Loan Account (Profits)<span class="badge badge-primary rounded-pill">{{ $vehicle->DISBURSEMENT_RECEIPT }}{{ $vehicle->CHECK_DIGIT !== null ? ' / ' . $vehicle->CHECK_DIGIT : '' }}</span></li>
-                    </ul>
-                    </div>
-                    </div>
-                    <div class="alert alert-light-warning mt-3" role="alert">
-                        A restructure does not pay out money. Credit Operation must change the loan in Profits (new tenure / instalment)
-                        before completing it here; completing marks the original loan as <b>Restructured</b> and notifies ESS.
-                    </div>
-                </div>
-     </div>
-     @endif
-     @if($restructures->count() > 0)
-     <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-warning">Restructure History</div>
-                    <div class="table-responsive mt-3">
-                    <table class="table table-sm">
-                        <thead><tr><th>Application</th><th>Date</th><th>Principal</th><th>Tenure</th><th>Instalment</th><th>Status</th></tr></thead>
-                        <tbody>
-                        @foreach($restructures as $restructure)
-                        <tr>
-                            <td><a href="{{ Route('staff-profile', ['id' => $restructure->ID]) }}">{{ $restructure->APPLICATION_NUMBER }}</a></td>
-                            <td>{{ $restructure->APPLICATION_DATE ? $restructure->APPLICATION_DATE->format('d M Y') : '' }}</td>
-                            <td>{{ number_format(!empty($restructure->SETTLEMENT_AMOUNT) ? (float) $restructure->SETTLEMENT_AMOUNT : (float) $restructure->REQUESTED_AMOUNT, 2,'.',',') }}</td>
-                            <td>{{ $restructure->TENURE }}</td>
-                            <td>{{ number_format(\App\Http\Livewire\Components\Vehicle\Details::instalment($restructure), 2,'.',',') }}</td>
-                            <td>{{ $restructure->TRANSACTION_STATUS }} / {{ $restructure->LOAN_STATUS }}</td>
-                        </tr>
-                        @endforeach
-                        </tbody>
-                    </table>
-                    </div>
-                </div>
-     </div>
-     @endif
-       <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-primary">Charges and Fees</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">OTHER_CHARGES<span class="badge badge-primary rounded-pill">{{number_format($vehicle->OTHER_CHARGES, 2,'.',',')  }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">PROCESSING_FEE<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->PROCESSING_FEE, 2,'.',',') }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">PRODUCT_INTEREST_RATE<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->PRODUCT_INTEREST_RATE, 2,'.',',') }}%</span></li>
- 
-                       </ul>
-                    </div>
-                    <div class="col-lg-6">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">INSURANCE<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->INSURANCE, 2,'.',',') }}</span></l>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">PRODUCT_PROCESSING_FEE<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->PRODUCT_PROCESSING_FEE, 2,'.',',') }}%</span></li>
-                            <!-- <li class="list-group-item d-flex justify-content-between align-items-center">TOTAL_AMOUNT_TO_PAY<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->TOTAL_AMOUNT_TO_PAY, 2,'.',',') }}</span></li> -->
-                        </ul>
-                    </div>
-                    </div>
-                </div>
-     </div>
-     <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-primary"> Bank and Branch Details</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">BANK_ACCOUNT_NUMBER<span class="badge badge-primary rounded-pill">{{ $vehicle->BANK_ACCOUNT_NUMBER }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">BRANCH_NAME<span class="badge badge-primary rounded-pill">{{ $vehicle->BRANCH_NAME }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">INIT_BRANCH<span class="badge badge-primary rounded-pill">{{ $vehicle->INIT_BRANCH }}</span></li>
-                          </ul>
-                    </div>
-                    <div class="col-lg-6">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">BEN_BRANCH<span class="badge badge-primary rounded-pill">{{ $vehicle->BEN_BRANCH }}</span></l>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">NEAREST_BRANCH_NAME<span class="badge badge-primary rounded-pill">{{ $vehicle->NEAREST_BRANCH_NAME }}</span></li>
-                         </ul>
-                    </div>
-                    </div>
-                </div>
-     </div>
-     <!-- end ribon -->
-          
-     <!-- <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-primary">Currency and Financial Codes</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">BEN_CURRENCY<span class="badge badge-primary rounded-pill">{{ $vehicle->BEN_CURRENCY }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">INIT_CURRENCY<span class="badge badge-primary rounded-pill">{{ $vehicle->INIT_CURRENCY }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">PRODUCT_CODE<span class="badge badge-primary rounded-pill">{{ $vehicle->PRODUCT_CODE }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">VOTE_CODE<span class="badge badge-primary rounded-pill">{{ $vehicle->VOTE_CODE }}</span></li>
-                 
-                          </ul>
-                    </div>
-                    <div class="col-lg-6">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">VOTE_NAME<span class="badge badge-primary rounded-pill">{{ $vehicle->VOTE_NAME }}</span></l>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">PRODUCT_INTEREST_RATE<span class="badge badge-primary rounded-pill">{{ $vehicle->PRODUCT_INTEREST_RATE }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">PRODUCT_PROCESSING_FEE<span class="badge badge-primary rounded-pill">{{ $vehicle->PRODUCT_PROCESSING_FEE }}</span></li>
-               
-                         </ul>
-                    </div>
-                    </div>
-                </div>
-     </div> -->
-     <!-- <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-primary">Dates</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <ul class="list-group">
-                                    </ul>
-                    </div>
-                    <div class="col-lg-6">
-                        <ul class="list-group">
-                          
-                           
-                        </ul>
-                    </div>
-                    </div>
-                </div>
-     </div> -->
-     <!-- end ribon -->
-     <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-primary"> Approval and Confirmation</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <ul class="list-group">
-                          <li class="list-group-item d-flex justify-content-between align-items-center">TRANSACTION_STATUS<span class="badge badge-primary rounded-pill">{{ $vehicle->TRANSACTION_STATUS }}</span></l>
-                     
-                            <li class="list-group-item d-flex justify-content-between align-items-center">APPROVAL_DESCRIPTION<span class="badge badge-primary rounded-pill">{{ $vehicle->APPROVAL_DESCRIPTION }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">APPROVED_BY<span class="badge badge-primary rounded-pill">{{ $vehicle->APPROVED_BY }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">APPROVED_DATE<span class="badge badge-primary rounded-pill">{{ $vehicle->APPROVED_DATE }}</span></li>
-                            
-                          </ul>
-                    </div>
-                    <div class="col-lg-6">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">REASON<span class="badge badge-primary rounded-pill">{{ $vehicle->REASON }}</span></l>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">LOAN_REQUEST_INITIATOR<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_REQUEST_INITIATOR }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">LOAN_REQUEST_CHECKER<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_REQUEST_CHECKER }} </span></li>
-                          </ul>
-                    </div>
-                    </div>
-                </div>
-     </div>
-     <!-- end ribon -->
- 
-   
- 
-   
-     <!-- end ribon -->
-     <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-primary">CBS (Core Banking System) Response</div>
-                    <div class="row">
-                    <div class="col-lg-6">
-                    <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">CBS_RESPONSE_CODE<span class="badge badge-primary rounded-pill">{{ $vehicle->CBS_RESPONSE_CODE }}</span></li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">CBS_RESPONSE_DESCRIPTION<span class="badge badge-primary rounded-pill">{{ $vehicle->CBS_RESPONSE_DESCRIPTION }}</span></li>
-                       </ul>
-                    </div>
-                    <div class="col-lg-6">
-                        <ul class="list-group">
-                                  <li class="list-group-item d-flex justify-content-between align-items-center">DISBURSEMENT_RECEIPT<span class="badge badge-primary rounded-pill">{{ $vehicle->DISBURSEMENT_RECEIPT }}</span></li>
-                                  @if(isset($vehicle->LOAN_DISBURSED_DATE))
-                            <li class="list-group-item d-flex justify-content-between align-items-center">LOAN_DISBURSED_DATE<span class="badge badge-primary rounded-pill">{{ $vehicle->LOAN_DISBURSED_DATE->format('d M Y') }}</span></li>
-                            @else
-                            <li class="list-group-item d-flex justify-content-between align-items-center">LOAN_DISBURSED_DATE<span class="badge badge-primary rounded-pill"></span></li>
-                            @endif
-                        </ul>
-                    </div>
-                    </div>
-                </div>
-     </div>
-     <!-- end ribon -->
-     </div>
-     <div class="ribbon-wrapper card">
-                <div class="card-body">
-                    <div class="ribbon ribbon-clip ribbon-secondary">Actions</div>
+    $caStage = $stages->first(fn ($s) => in_array($s->status, ['INITIATED', 'INITIATED_REJECTION', 'DISBURSED']));
+    $copReject = $stages->first(fn ($s) => $s->status === 'REJECTED');
+
+    $appliedAt = preg_match('/^ESS(\d{13})$/', (string) $vehicle->APPLICATION_NUMBER, $m) ? Carbon::createFromTimestampMs((int) $m[1])->setTimezone($TZ) : null;
+    $receivedAt = $local($vehicle->APPLICATION_DATE);
+    $employerAt = $local($vehicle->APPROVED_DATE);
+    $disbursedAt = $local($vehicle->LOAN_DISBURSED_DATE);
+
+    $rejected = $tx === 'rejected' || $ls === 'rejected';
+    $cancelled = $ls === 'cancelled' || $tx === 'cancelled';
+    $coDone = !in_array($ls, ['pending', '']) || !in_array($tx, ['pending', '']);
+    $employerDone = in_array($tx, ['approved', 'disbursed', 'posted to cbs', 'restructured']);
+    $copDone = ($caStage && $caStage->status === 'DISBURSED') || in_array($tx, ['disbursed', 'posted to cbs', 'restructured']);
+    $isRestructure = $vehicle->LOAN_TYPE === 'RESTRUCTURING';
+
+    // state: done | rejected | current | waiting
+    $steps = [
+        ['key' => 'applied',  'title' => 'Applied on ESS',            'who' => 'Employee (ESS Utumishi)', 'at' => $appliedAt,  'state' => 'done', 'note' => $appliedAt ? null : 'Date not provided by ESS'],
+        ['key' => 'received', 'title' => 'Received at MCB',           'who' => 'ESS gateway',              'at' => $receivedAt, 'state' => 'done'],
+        ['key' => 'co',       'title' => 'Credit Officer review',     'who' => 'Credit Officer',           'at' => null,
+            'state' => $coDone ? (($ls === 'rejected' && !$employerDone) ? 'rejected' : 'done') : ($cancelled || $rejected ? 'rejected' : 'current'),
+            'note' => $coDone ? 'Time of CO decision is not recorded by the system' : null],
+        ['key' => 'employer', 'title' => 'Employer approval (ESS)',   'who' => $v($vehicle->APPROVED_BY) !== '—' ? $vehicle->APPROVED_BY : 'Employer / HR via ESS', 'at' => $employerAt,
+            'state' => $employerDone ? 'done' : (($rejected || $cancelled) && $coDone ? 'rejected' : ($coDone ? 'current' : 'waiting')),
+            'note' => ($employerDone && !$employerAt) ? 'Approval time not recorded' : null],
+        ['key' => 'ca',       'title' => $isRestructure ? 'Credit Admin – restructure initiation' : 'Credit Admin – disbursement initiation',
+            'who' => $who($caStage->initiator_id ?? null) ?? ($vehicle->LOAN_REQUEST_INITIATOR ?: 'Credit Admin'), 'at' => $utc($caStage->initiator_date ?? null),
+            'state' => $caStage ? ($caStage->status === 'INITIATED_REJECTION' ? 'rejected' : 'done') : ($employerDone && !$copDone ? 'current' : ($copDone ? 'done' : 'waiting')),
+            'note' => $caStage && $caStage->status === 'INITIATED_REJECTION' ? 'Rejection initiated' : (($copDone && !$caStage) ? 'Time not recorded' : null)],
+        ['key' => 'cop',      'title' => $isRestructure ? 'Credit Operation – restructure completed' : 'Credit Operation – approval',
+            'who' => $who($caStage->checker_id ?? null) ?? $who($copReject->initiator_id ?? null) ?? ($vehicle->LOAN_REQUEST_CHECKER ?: 'Credit Operation'),
+            'at' => $utc($caStage->checker_date ?? null) ?? $utc($copReject->initiator_date ?? null),
+            'state' => $copReject ? 'rejected' : ($copDone ? 'done' : ($caStage && $caStage->status !== 'DISBURSED' ? 'current' : 'waiting')),
+            'note' => $copReject ? 'Rejected' : (($copDone && !$caStage) ? 'Time not recorded' : null)],
+        ['key' => 'disbursed','title' => $isRestructure ? 'Restructure completed in core banking' : 'Disbursed to customer', 'who' => 'Core banking (Profits)', 'at' => $disbursedAt,
+            'state' => in_array($tx, ['disbursed', 'posted to cbs', 'restructured']) || $disbursedAt ? 'done' : ($copDone ? 'current' : 'waiting'),
+            'note' => (in_array($tx, ['disbursed', 'posted to cbs']) && !$disbursedAt) ? 'Time not recorded' : null],
+    ];
+    // Once rejected/cancelled, the remaining steps did not happen
+    $stopped = false;
+    foreach ($steps as $i => $s) {
+        if ($stopped) { $steps[$i]['state'] = 'skipped'; continue; }
+        if ($s['state'] === 'rejected') { $stopped = true; }
+    }
+    // TAT for each step = time since the previous step that has a recorded time
+    $now = Carbon::now($TZ);
+    $lastAt = null; $lastTitle = null;
+    foreach ($steps as $i => $s) {
+        $steps[$i]['tat'] = null; $steps[$i]['from'] = null; $steps[$i]['waiting'] = null;
+        if ($s['at'] && $lastAt && $s['at']->gte($lastAt)) {
+            $steps[$i]['tat'] = $lastAt->diffInMinutes($s['at']);
+            $steps[$i]['from'] = $lastTitle;
+        } elseif ($s['state'] === 'current' && $lastAt) {
+            $steps[$i]['waiting'] = $lastAt->diffInMinutes($now);
+            $steps[$i]['from'] = $lastTitle;
+        }
+        if ($s['at']) { $lastAt = $s['at']; $lastTitle = $s['title']; }
+    }
+    $endAt = collect($steps)->filter(fn ($s) => $s['at'] && $s['state'] !== 'skipped')->last()['at'] ?? null;
+    $finished = in_array($tx, ['disbursed', 'posted to cbs', 'restructured']) || $rejected || $cancelled;
+    $totalMins = $receivedAt ? $receivedAt->diffInMinutes($finished && $endAt ? $endAt : $now) : null;
+    if ($finished && (!$endAt || ($receivedAt && $endAt->eq($receivedAt)))) { $totalMins = null; } // end time not recorded
+
+    $instalment = \App\Http\Livewire\Components\Vehicle\Details::instalment($vehicle);
+    $initials = strtoupper(substr((string) $vehicle->FIRST_NAME, 0, 1).substr((string) $vehicle->LAST_NAME, 0, 1));
+@endphp
+
+<style>
+  .lp{--b:#0d47a1;--b2:#1976d2;--o:#f28c28;--ink:#1f2937;--mut:#6b7280;--line:#e7ebf3;--soft:#f6f8fc;color:var(--ink);}
+  .lp-card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 10px rgba(15,35,80,.04);margin-bottom:20px;}
+  .lp-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);}
+  .lp-card-h h6{margin:0;font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .lp-card-h h6 i{color:var(--b);}
+  .lp-card-h small{color:var(--mut);}
+  .lp-card-b{padding:16px 20px;}
+  .lp-hero{background:linear-gradient(120deg,#0b3c8c,#0d47a1 50%,#1565c0);border-radius:16px;color:#fff;padding:22px 24px;margin-bottom:20px;position:relative;overflow:hidden;}
+  .lp-hero:after{content:"";position:absolute;right:-70px;top:-70px;width:250px;height:250px;border-radius:50%;background:rgba(242,140,40,.18);}
+  .lp-hero-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:relative;z-index:1;}
+  .lp-av{width:58px;height:58px;border-radius:50%;background:#fff;color:var(--b);font-weight:800;font-size:20px;display:flex;align-items:center;justify-content:center;flex:0 0 58px;}
+  .lp-hero h4{color:#fff;margin:0;font-weight:700;font-size:20px;}
+  .lp-hero .ids{color:#cfe0ff;font-size:12.5px;margin-top:3px;}
+  .lp-hero .ids b{color:#fff;font-weight:600;}
+  .lp-tags{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;}
+  .lp-figs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:18px;position:relative;z-index:1;}
+  .lp-fig{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:10px 14px;}
+  .lp-fig span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#cfe0ff;font-weight:700;}
+  .lp-fig b{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .lp-fig b small{font-size:11px;font-weight:600;color:#cfe0ff;margin-right:3px;}
+  .lp-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:20px;font-size:11.5px;font-weight:700;background:#fff;}
+  .lp-pill:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .lp-pill.blue{color:#0d47a1;} .lp-pill.green{color:#137a43;} .lp-pill.grey{color:#55606e;} .lp-pill.red{color:#c62828;} .lp-pill.purple{color:#6d28d9;}
+  .lp-pill.soft.blue{background:#e3f2fd;} .lp-pill.soft.green{background:#e6f6ee;} .lp-pill.soft.grey{background:#f1f3f6;} .lp-pill.soft.red{background:#fdecec;} .lp-pill.soft.purple{background:#f1e9fe;}
+  .lp-chip{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:700;background:var(--o);color:#fff;}
+  .lp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0 28px;}
+  .lp-grid.three{grid-template-columns:repeat(3,1fr);}
+  .lp-f{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px;}
+  .lp-f dt{color:var(--mut);font-weight:500;flex:0 0 auto;}
+  .lp-f dd{margin:0;font-weight:600;text-align:right;word-break:break-word;font-variant-numeric:tabular-nums;}
+  .lp-f dd small{color:var(--mut);font-weight:500;}
+  .lp-f dd.mono{font-family:SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;}
+  /* timeline */
+  .lp-tat-sum{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .lp-tat-sum .tot{font-size:13px;color:var(--mut);}
+  .lp-tat-sum .tot b{font-size:15px;color:var(--ink);}
+  .lp-tl{list-style:none;margin:0;padding:0;position:relative;}
+  .lp-tl li{display:grid;grid-template-columns:34px 1fr auto;gap:14px;position:relative;padding:0 0 18px;}
+  .lp-tl li:last-child{padding-bottom:0;}
+  .lp-tl li:before{content:"";position:absolute;left:16px;top:30px;bottom:-2px;width:2px;background:var(--line);}
+  .lp-tl li:last-child:before{display:none;}
+  .lp-tl li.done:before{background:#a7d7b9;}
+  .lp-dot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;position:relative;z-index:1;border:2px solid var(--line);background:#fff;color:var(--mut);}
+  .lp-tl li.done .lp-dot{background:#16a34a;border-color:#16a34a;color:#fff;}
+  .lp-tl li.current .lp-dot{background:#fff7ed;border-color:var(--o);color:var(--o);box-shadow:0 0 0 4px rgba(242,140,40,.15);}
+  .lp-tl li.rejected .lp-dot{background:#dc2626;border-color:#dc2626;color:#fff;}
+  .lp-tl li.skipped{opacity:.45;}
+  .lp-tl .t{font-weight:700;font-size:13.5px;}
+  .lp-tl .s{font-size:12px;color:var(--mut);margin-top:2px;}
+  .lp-tl .s b{color:var(--ink);font-weight:600;}
+  .lp-tl .n{font-size:11.5px;color:#9a6b1f;margin-top:3px;font-style:italic;}
+  .lp-tat{text-align:right;white-space:nowrap;}
+  .lp-tat .v{display:inline-block;font-size:12px;font-weight:800;padding:3px 10px;border-radius:20px;}
+  .lp-tat .v.ok{background:#e6f6ee;color:#137a43;} .lp-tat .v.warn{background:#fff4e5;color:#b45309;} .lp-tat .v.bad{background:#fdecec;color:#c62828;} .lp-tat .v.mut{background:#f1f3f6;color:#64748b;}
+  .lp-tat .k{display:block;font-size:10.5px;color:var(--mut);margin-top:3px;}
+  .lp-legend{font-size:11px;color:var(--mut);display:flex;gap:12px;flex-wrap:wrap;}
+  .lp-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle;}
+  /* actions area */
+  .lp-actions .btn{border-radius:10px;font-weight:600;padding:9px 16px;}
+  .lp-actions .list-group-item{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;list-style:none;}
+  .lp-actions .alert{border-radius:10px;}
+  .lp .table-sm th{font-size:11px;text-transform:uppercase;color:#64748b;background:var(--soft);}
+  @media (max-width:1199px){.lp-figs{grid-template-columns:repeat(3,1fr);} .lp-grid.three{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:767px){.lp-grid,.lp-grid.three{grid-template-columns:1fr;} .lp-figs{grid-template-columns:repeat(2,minmax(0,1fr));} .lp-fig{padding:9px 11px;} .lp-fig b{font-size:15px;white-space:nowrap;} .lp-hero{padding:18px 16px;} .lp-tags{margin-left:0;} .lp-tl li{grid-template-columns:30px 1fr;} .lp-tat{grid-column:2;text-align:left;}}
+  @media (max-width:430px){.lp-figs{grid-template-columns:1fr;}}
+</style>
+
+{{-- ===== Summary header ===== --}}
+<div class="lp-hero">
+  <div class="lp-hero-top">
+    <div class="lp-av">{{ $initials ?: '?' }}</div>
+    <div>
+      <h4>{{ strtoupper(trim(preg_replace('/\s+/', ' ', $vehicle->FIRST_NAME.' '.$vehicle->MIDDLE_NAME.' '.$vehicle->LAST_NAME))) }}</h4>
+      <div class="ids">Application <b>{{ $v($vehicle->APPLICATION_NUMBER) }}</b> · Loan ID <b>{{ $v($vehicle->LOAN_ID) }}</b> · Check No. <b>{{ $v($vehicle->CHECK_NUMBER) }}</b></div>
+      <div class="ids">{{ $v($vehicle->VOTE_NAME) }} · {{ $v($vehicle->DESIGNATION_NAME) }}</div>
+    </div>
+    <div class="lp-tags">
+      <span class="lp-chip">{{ ucwords(strtolower(str_replace('_', ' ', $vehicle->LOAN_TYPE ?: 'NEW_LOAN'))) }}</span>
+      <span class="lp-pill {{ $pill($vehicle->TRANSACTION_STATUS) }}" title="Transaction status">{{ $v($vehicle->TRANSACTION_STATUS) }}</span>
+      <span class="lp-pill {{ $pill($vehicle->LOAN_STATUS) }}" title="Loan status">Loan: {{ $v($vehicle->LOAN_STATUS) }}</span>
+    </div>
+  </div>
+  <div class="lp-figs">
+    <div class="lp-fig"><span>Requested amount</span><b><small>TZS</small>{{ $money($vehicle->REQUESTED_AMOUNT) }}</b></div>
+    <div class="lp-fig"><span>Tenure</span><b>{{ $v($vehicle->TENURE) }} <small>months</small></b></div>
+    <div class="lp-fig"><span>Monthly instalment</span><b><small>TZS</small>{{ $money($instalment) }}</b></div>
+    <div class="lp-fig"><span>Total to pay</span><b><small>TZS</small>{{ $money($vehicle->TOTAL_AMOUNT_TO_PAY) }}</b></div>
+    <div class="lp-fig"><span>Total TAT {{ $finished ? '' : '(so far)' }}</span><b>{{ $dur($totalMins) ?? '—' }}</b></div>
+  </div>
+</div>
+
+{{-- ===== Approval journey & TAT ===== --}}
+<div class="lp-card">
+  <div class="lp-card-h">
+    <h6><i class="fa fa-clock-o"></i> Approval journey &amp; turnaround time (TAT)</h6>
+    <div class="lp-legend">
+      <span><i style="background:#16a34a"></i>≤ 24 hrs</span><span><i style="background:#f59e0b"></i>1 – 3 days</span><span><i style="background:#dc2626"></i>&gt; 3 days</span>
+    </div>
+  </div>
+  <div class="lp-card-b">
+    <ul class="lp-tl">
+      @foreach($steps as $s)
+        <li class="{{ $s['state'] }}">
+          <div class="lp-dot">
+            @if($s['state'] === 'done') ✓ @elseif($s['state'] === 'rejected') ✕ @elseif($s['state'] === 'current') … @else {{ $loop->iteration }} @endif
+          </div>
+          <div>
+            <div class="t">{{ $s['title'] }}</div>
+            <div class="s">
+              @if($s['at'])<b>{{ $s['at']->format('d M Y, H:i') }}</b> · @endif
+              {{ $s['who'] }}
+              @if($s['state'] === 'current') · <b style="color:#c2410c">In progress</b>@endif
+              @if($s['state'] === 'skipped') · Not reached @endif
+              @if($s['state'] === 'waiting') · Waiting for previous step @endif
+            </div>
+            @if(!empty($s['note']))<div class="n">{{ $s['note'] }}</div>@endif
+          </div>
+          <div class="lp-tat">
+            @if($s['tat'] !== null)
+              <span class="v {{ $tone($s['tat']) }}">{{ $dur($s['tat']) }}</span>
+              <span class="k">after {{ $s['from'] }}</span>
+            @elseif($s['waiting'] !== null)
+              <span class="v {{ $tone($s['waiting']) }}">{{ $dur($s['waiting']) }}</span>
+              <span class="k">waiting since {{ $s['from'] }}</span>
+            @elseif($loop->first)
+              <span class="k">Start</span>
+            @endif
+          </div>
+        </li>
+      @endforeach
+    </ul>
+  </div>
+</div>
+
+{{-- ===== Details ===== --}}
+<div class="row">
+  <div class="col-xl-6">
+    <div class="lp-card">
+      <div class="lp-card-h"><h6><i class="fa fa-id-card-o"></i> Identification</h6></div>
+      <div class="lp-card-b">
+        <dl class="m-0">
+          <div class="lp-f"><dt>ID</dt><dd>{{ $vehicle->ID }}</dd></div>
+          <div class="lp-f"><dt>Loan ID</dt><dd class="mono">{{ $v($vehicle->LOAN_ID) }}</dd></div>
+          <div class="lp-f"><dt>Application No.</dt><dd class="mono">{{ $v($vehicle->APPLICATION_NUMBER) }}</dd></div>
+          <div class="lp-f"><dt>Reference No.</dt><dd class="mono">{{ $v($vehicle->REFERENCE_NUMBER) }}</dd></div>
+          <div class="lp-f"><dt>Customer ID</dt><dd>{{ $v($vehicle->CUSTOMER_ID) }}</dd></div>
+          <div class="lp-f"><dt>Check No.</dt><dd>{{ $v($vehicle->CHECK_NUMBER) }}</dd></div>
+          <div class="lp-f"><dt>Vote Code</dt><dd>{{ $v($vehicle->VOTE_CODE) }}</dd></div>
+          <div class="lp-f"><dt>Vote Name</dt><dd>{{ $v($vehicle->VOTE_NAME) }}</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="lp-card">
+      <div class="lp-card-h"><h6><i class="fa fa-user-o"></i> Applicant information</h6></div>
+      <div class="lp-card-b">
+        <dl class="m-0">
+          <div class="lp-f"><dt>First Name</dt><dd>{{ $v($vehicle->FIRST_NAME) }}</dd></div>
+          <div class="lp-f"><dt>Phone</dt><dd>{{ $v($vehicle->MSISDN) }}</dd></div>
+          <div class="lp-f"><dt>Middle Name</dt><dd>{{ $v($vehicle->MIDDLE_NAME) }}</dd></div>
+          <div class="lp-f"><dt>National ID</dt><dd class="mono">{{ $v($vehicle->NATIONAL_ID) }}</dd></div>
+          <div class="lp-f"><dt>Last Name</dt><dd>{{ $v($vehicle->LAST_NAME) }}</dd></div>
+          <div class="lp-f"><dt>Gender</dt><dd>{{ $v($vehicle->SEX) }}</dd></div>
+          <div class="lp-f"><dt>Email</dt><dd>{{ $v($vehicle->EMAIL_ADDRESS) }}</dd></div>
+          <div class="lp-f"><dt>Marital Status</dt><dd>{{ $v($vehicle->MARITAL_STATUS) }}</dd></div>
+          <div class="lp-f"><dt>Physical Address</dt><dd>{{ $v($vehicle->PHYSICAL_ADDRESS) }}</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="lp-card">
+  <div class="lp-card-h"><h6><i class="fa fa-briefcase"></i> Employment details</h6></div>
+  <div class="lp-card-b">
+    <dl class="lp-grid three m-0">
+      <div class="lp-f"><dt>Employment Date</dt><dd>{{ $dt($vehicle->EMPLOYMENT_DATE) }}</dd></div>
+      <div class="lp-f"><dt>Confirmation Date</dt><dd>{{ $dt($vehicle->CONFIRMATION_DATE) }}</dd></div>
+      <div class="lp-f"><dt>Months to Retire</dt><dd>{{ $v($vehicle->RETIREMENT_DATE) }} <small>months</small></dd></div>
+      <div class="lp-f"><dt>Terms of Employment</dt><dd>{{ $v($vehicle->TERMS_OF_EMPLOYMENT) }}</dd></div>
+      <div class="lp-f"><dt>Designation Code</dt><dd>{{ $v($vehicle->DESIGNATION_CODE) }}</dd></div>
+      <div class="lp-f"><dt>Designation Name</dt><dd>{{ $v($vehicle->DESIGNATION_NAME) }}</dd></div>
+      <div class="lp-f"><dt>Basic Salary</dt><dd>{{ $money($vehicle->BASIC_SALARY) }} <small>TZS</small></dd></div>
+      <div class="lp-f"><dt>Net Salary</dt><dd>{{ $money($vehicle->NET_SALARY) }} <small>TZS</small></dd></div>
+      <div class="lp-f"><dt>One Third Salary</dt><dd>{{ $money($vehicle->ONE_THIRD_AMOUNT) }} <small>TZS</small></dd></div>
+      <div class="lp-f"><dt>Total Employment Deduction</dt><dd>{{ $money($vehicle->TOTAL_EMPLOYMENT_DEDUCTION) }} <small>TZS</small></dd></div>
+      <div class="lp-f"><dt>Contract Start Date</dt><dd>{{ $dt($vehicle->CONTRACT_START_DATE) }}</dd></div>
+      <div class="lp-f"><dt>Contract End Date</dt><dd>{{ $dt($vehicle->CONTRACT_END_DATE) }}</dd></div>
+    </dl>
+  </div>
+</div>
+
+<div class="lp-card">
+  <div class="lp-card-h"><h6><i class="fa fa-money"></i> Loan details</h6></div>
+  <div class="lp-card-b">
+    <dl class="lp-grid three m-0">
+      <div class="lp-f"><dt>Loan Type</dt><dd>{{ $v($vehicle->LOAN_TYPE) }}</dd></div>
+      <div class="lp-f"><dt>Loan Status</dt><dd><span class="lp-pill soft {{ $pill($vehicle->LOAN_STATUS) }}">{{ $v($vehicle->LOAN_STATUS) }}</span></dd></div>
+      <div class="lp-f"><dt>Loan Purpose</dt><dd>{{ $v($vehicle->LOAN_PURPOSE) }}</dd></div>
+      <div class="lp-f"><dt>Requested Amount</dt><dd>{{ $money($vehicle->REQUESTED_AMOUNT) }} <small>TZS</small></dd></div>
+      <div class="lp-f"><dt>Total Amount</dt><dd>{{ $money($vehicle->TOTAL_AMOUNT) }} <small>TZS</small></dd></div>
+      <div class="lp-f"><dt>Total Amount To Pay</dt><dd>{{ $money($vehicle->TOTAL_AMOUNT_TO_PAY) }} <small>TZS</small></dd></div>
+      <div class="lp-f"><dt>Outstanding Balance</dt><dd>{{ $money($vehicle->OUT_STANDING_BALANCE) }} <small>TZS</small></dd></div>
+      <div class="lp-f"><dt>Desired Deduction</dt><dd>{{ $money($vehicle->DESIRED_DEDUCTION_AMOUNT) }} <small>TZS</small></dd></div>
+      <div class="lp-f"><dt>Loan Tenure</dt><dd>{{ $v($vehicle->TENURE) }} <small>months</small></dd></div>
+      <div class="lp-f"><dt>Loan Reference</dt><dd class="mono">{{ $v($vehicle->LOAN_REFERENCE) }}</dd></div>
+      <div class="lp-f"><dt>Application Date</dt><dd>{{ $dt($vehicle->APPLICATION_DATE, true) }}</dd></div>
+      <div class="lp-f"><dt>Instalment Start Date</dt><dd>{{ $dt($vehicle->INSTALMENT_START_DATE) }}</dd></div>
+    </dl>
+  </div>
+</div>
+
+@if($vehicle->LOAN_TYPE === 'RESTRUCTURING')
+@php
+   $oldInstalment = \App\Http\Livewire\Components\Vehicle\Details::instalment($original_loan);
+   $newInstalment = \App\Http\Livewire\Components\Vehicle\Details::instalment($vehicle);
+   $principal = !empty($vehicle->SETTLEMENT_AMOUNT) ? (float) $vehicle->SETTLEMENT_AMOUNT : (float) $vehicle->REQUESTED_AMOUNT;
+@endphp
+<div class="lp-card" style="border-color:#fcd9b0">
+  <div class="lp-card-h" style="background:#fff8f0;border-radius:14px 14px 0 0"><h6><i class="fa fa-refresh" style="color:#f28c28"></i> Restructure: old vs new terms</h6></div>
+  <div class="lp-card-b">
+    <div class="row">
+      <div class="col-lg-6">
+        <h6 class="mb-1" style="font-size:13px;color:#6b7280">EXISTING LOAN</h6>
+        <dl class="m-0">
+          @if($original_loan)
+          <div class="lp-f"><dt>Original Loan</dt><dd><a href="{{ Route('staff-profile', ['id' => $original_loan->ID]) }}">{{ $original_loan->LOAN_ID }}</a></dd></div>
+          <div class="lp-f"><dt>Original Amount</dt><dd>{{ $money($original_loan->TOTAL_AMOUNT) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Original Tenure</dt><dd>{{ $original_loan->TENURE }} <small>months</small></dd></div>
+          <div class="lp-f"><dt>Current Instalment</dt><dd>{{ $money($oldInstalment) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Current Maturity</dt><dd>{{ $original_loan->MATURITY_DATE ? $original_loan->MATURITY_DATE->format('d M Y') : '—' }}</dd></div>
+          <div class="lp-f"><dt>Original Loan Status</dt><dd>{{ $original_loan->TRANSACTION_STATUS }}</dd></div>
+          @else
+          <div class="lp-f"><dt>Original Loan</dt><dd><span class="lp-pill soft red">{{ $vehicle->ORIGINAL_LOAN_ID ?? 'Not set' }} (not found)</span></dd></div>
+          @endif
+        </dl>
+      </div>
+      <div class="col-lg-6">
+        <h6 class="mb-1" style="font-size:13px;color:#6b7280">AFTER RESTRUCTURE</h6>
+        <dl class="m-0">
+          <div class="lp-f"><dt>Principal Restructured</dt><dd>{{ $money($principal) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>New Tenure</dt><dd>{{ $vehicle->TENURE }} <small>months</small></dd></div>
+          <div class="lp-f"><dt>New Instalment</dt><dd>{{ $money($newInstalment) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Processing Fee</dt><dd>{{ $money($vehicle->PROCESSING_FEE) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Total Amount To Pay (incl. fee)</dt><dd>{{ $money($vehicle->TOTAL_AMOUNT_TO_PAY) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Loan Account (Profits)</dt><dd class="mono">{{ $vehicle->DISBURSEMENT_RECEIPT }}{{ $vehicle->CHECK_DIGIT !== null ? ' / ' . $vehicle->CHECK_DIGIT : '' }}</dd></div>
+        </dl>
+      </div>
+    </div>
+    <div class="alert alert-light-warning mt-3 mb-0" role="alert">
+      A restructure does not pay out money. Credit Operation must change the loan in Profits (new tenure / instalment)
+      before completing it here; completing marks the original loan as <b>Restructured</b> and notifies ESS.
+    </div>
+  </div>
+</div>
+@endif
+
+@if($restructures->count() > 0)
+<div class="lp-card">
+  <div class="lp-card-h"><h6><i class="fa fa-history" style="color:#f28c28"></i> Restructure history</h6></div>
+  <div class="lp-card-b">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Application</th><th>Date</th><th>Principal</th><th>Tenure</th><th>Instalment</th><th>Status</th></tr></thead>
+        <tbody>
+        @foreach($restructures as $restructure)
+        <tr>
+          <td><a href="{{ Route('staff-profile', ['id' => $restructure->ID]) }}">{{ $restructure->APPLICATION_NUMBER }}</a></td>
+          <td>{{ $restructure->APPLICATION_DATE ? $restructure->APPLICATION_DATE->format('d M Y') : '' }}</td>
+          <td>{{ number_format(!empty($restructure->SETTLEMENT_AMOUNT) ? (float) $restructure->SETTLEMENT_AMOUNT : (float) $restructure->REQUESTED_AMOUNT, 2,'.',',') }}</td>
+          <td>{{ $restructure->TENURE }}</td>
+          <td>{{ number_format(\App\Http\Livewire\Components\Vehicle\Details::instalment($restructure), 2,'.',',') }}</td>
+          <td>{{ $restructure->TRANSACTION_STATUS }} / {{ $restructure->LOAN_STATUS }}</td>
+        </tr>
+        @endforeach
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+@endif
+
+<div class="row">
+  <div class="col-xl-6">
+    <div class="lp-card">
+      <div class="lp-card-h"><h6><i class="fa fa-percent"></i> Charges and fees</h6></div>
+      <div class="lp-card-b">
+        <dl class="m-0">
+          <div class="lp-f"><dt>Processing Fee</dt><dd>{{ $money($vehicle->PROCESSING_FEE) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Insurance</dt><dd>{{ $money($vehicle->INSURANCE) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Other Charges</dt><dd>{{ $money($vehicle->OTHER_CHARGES) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Product Interest Rate</dt><dd>{{ $money($vehicle->PRODUCT_INTEREST_RATE) }}%</dd></div>
+          <div class="lp-f"><dt>Product Processing Fee</dt><dd>{{ $money($vehicle->PRODUCT_PROCESSING_FEE) }}%</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="lp-card">
+      <div class="lp-card-h"><h6><i class="fa fa-university"></i> Bank and branch</h6></div>
+      <div class="lp-card-b">
+        <dl class="m-0">
+          <div class="lp-f"><dt>Bank Account Number</dt><dd class="mono">{{ $v($vehicle->BANK_ACCOUNT_NUMBER) }}</dd></div>
+          <div class="lp-f"><dt>Branch Name</dt><dd>{{ $v($vehicle->BRANCH_NAME) }}</dd></div>
+          <div class="lp-f"><dt>Nearest Branch</dt><dd>{{ $v($vehicle->NEAREST_BRANCH_NAME) }}</dd></div>
+          <div class="lp-f"><dt>Initiating Branch</dt><dd>{{ $v($vehicle->INIT_BRANCH) }}</dd></div>
+          <div class="lp-f"><dt>Beneficiary Branch</dt><dd>{{ $v($vehicle->BEN_BRANCH) }}</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-xl-6">
+    <div class="lp-card">
+      <div class="lp-card-h"><h6><i class="fa fa-check-square-o"></i> Approval and confirmation</h6></div>
+      <div class="lp-card-b">
+        <dl class="m-0">
+          <div class="lp-f"><dt>Transaction Status</dt><dd><span class="lp-pill soft {{ $pill($vehicle->TRANSACTION_STATUS) }}">{{ $v($vehicle->TRANSACTION_STATUS) }}</span></dd></div>
+          <div class="lp-f"><dt>Approval Description</dt><dd>{{ $v($vehicle->APPROVAL_DESCRIPTION) }}</dd></div>
+          <div class="lp-f"><dt>Approved By</dt><dd>{{ $v($vehicle->APPROVED_BY) }}</dd></div>
+          <div class="lp-f"><dt>Approved Date</dt><dd>{{ $dt($vehicle->APPROVED_DATE, true) }}</dd></div>
+          <div class="lp-f"><dt>Reason</dt><dd>{{ $v($vehicle->REASON) }}</dd></div>
+          <div class="lp-f"><dt>Loan Request Initiator</dt><dd>{{ $v($vehicle->LOAN_REQUEST_INITIATOR) }}</dd></div>
+          <div class="lp-f"><dt>Loan Request Checker</dt><dd>{{ $v($vehicle->LOAN_REQUEST_CHECKER) }}</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="lp-card">
+      <div class="lp-card-h"><h6><i class="fa fa-server"></i> Core banking (CBS) response</h6></div>
+      <div class="lp-card-b">
+        <dl class="m-0">
+          <div class="lp-f"><dt>CBS Response Code</dt><dd class="mono">{{ $v($vehicle->CBS_RESPONSE_CODE) }}</dd></div>
+          <div class="lp-f"><dt>CBS Response Description</dt><dd>{{ $v($vehicle->CBS_RESPONSE_DESCRIPTION) }}</dd></div>
+          <div class="lp-f"><dt>Disbursement Receipt / Loan Account</dt><dd class="mono">{{ $v($vehicle->DISBURSEMENT_RECEIPT) }}</dd></div>
+          <div class="lp-f"><dt>Loan Disbursed Date</dt><dd>{{ $dt($vehicle->LOAN_DISBURSED_DATE, true) }}</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- ===== Actions (logic unchanged) ===== --}}
+<div class="lp-card lp-actions">
+  <div class="lp-card-h"><h6><i class="fa fa-bolt"></i> Actions</h6></div>
+  <div class="lp-card-b">
                     <div class="row">
 
                 @if($vehicle->TRANSACTION_STATUS === 'Pending')
@@ -516,8 +637,8 @@ WITH POPUP -->
              @endif
             <!-- ------ -->
                     </div>
-                </div>
-     </div>
+  </div>
+</div>
      <!-- end ribon -->
     
 
@@ -855,3 +976,4 @@ WITH POPUP -->
     </div>
  <!-- SEARCH MODAL END -->
     						
+</div>

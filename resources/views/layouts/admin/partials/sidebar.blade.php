@@ -73,7 +73,10 @@
                     <li class="dropdown">
                         <a class="nav-link menu-title {{ request()->is('v1/loans/deductions*') ? 'active' : '' }}" href="javascript:void(0)"><i data-feather="alert-octagon"></i><span>Deductions @if($stoppedPending > 0)<span class="badge rounded-pill" style="background:#dc2626;color:#fff;font-size:10px;margin-left:4px">{{ $stoppedPending }}</span>@endif</span></a>
                         <ul class="nav-submenu menu-content" style="display: {{ request()->is('v1/loans/deductions*') ? 'block' : '' }};">
-                            <li><a href="{{ route('deductions-stopped', ['filter' => 'pending']) }}" class="{{ routeActive('deductions-stopped') }}"> - Stopped Deductions</a></li>
+                            @php $stopCounts = \App\Models\LoanDeduction::counts(Auth::user()); $stopFilter = request()->routeIs('deductions-stopped') ? request('filter', 'pending') : null; @endphp
+                            @foreach(\App\Models\LoanDeduction::FILTERS as $key => $label)
+                            <li><a href="{{ route('deductions-stopped', ['filter' => $key]) }}" class="{{ $stopFilter === $key ? 'active' : '' }}"> - {{ $label }} <span style="opacity:.7">({{ $stopCounts[$key] }})</span></a></li>
+                            @endforeach
                         </ul>
                     </li>
                     @endif

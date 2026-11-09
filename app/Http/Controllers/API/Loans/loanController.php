@@ -750,29 +750,14 @@ class loanController extends Controller
         if (!LoanDeduction::tableReady()) {
             return redirect()->route('home')->with('success', '<b>NOT AVAILABLE</b>, update the ESS gateway first (it creates the LOAN_DEDUCTIONS columns).');
         }
-        $filter = $request->query('filter', 'pending');
+        $filter = array_key_exists($request->query('filter'), LoanDeduction::FILTERS) ? $request->query('filter') : 'pending';
         $search = trim((string) $request->query('q', ''));
+        $perPage = in_array((int) $request->query('per_page'), [15, 25, 50, 100]) ? (int) $request->query('per_page') : 15;
 
-        $base = LoanDeduction::query()->with('loan');
-        if (Auth::user()->role == 'Branch Operations') {
-            $base->whereHas('loan', fn ($l) => $l->where('INIT_BRANCH', Auth::user()->branch_id));
-        }
-        $counts = [
-            'pending'  => (clone $base)->whereNull('REVIEWED_DATE')->count(),
-            'reviewed' => (clone $base)->whereNotNull('REVIEWED_DATE')->count(),
-            'notfound' => (clone $base)->where('STATUS', 'LOAN_NOT_FOUND')->count(),
-            'all'      => (clone $base)->count(),
-        ];
-        $atRisk = (float) (clone $base)->whereNull('REVIEWED_DATE')->sum('BALANCE_AMOUNT');
+        $counts = LoanDeduction::counts(Auth::user());
+        $atRisk = (float) LoanDeduction::applyFilter(LoanDeduction::visibleTo(Auth::user()), 'pending')->sum('BALANCE_AMOUNT');
 
-        $query = clone $base;
-        if ($filter === 'pending') {
-            $query->whereNull('REVIEWED_DATE');
-        } elseif ($filter === 'reviewed') {
-            $query->whereNotNull('REVIEWED_DATE');
-        } elseif ($filter === 'notfound') {
-            $query->where('STATUS', 'LOAN_NOT_FOUND');
-        }
+        $query = LoanDeduction::applyFilter(LoanDeduction::visibleTo(Auth::user())->with('loan'), $filter);
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('CHECK_NUMBER', 'like', "%$search%")
@@ -781,7 +766,7 @@ class loanController extends Controller
                   ->orWhereHas('loan', fn ($l) => $l->where('FIRST_NAME', 'like', "%$search%")->orWhere('LAST_NAME', 'like', "%$search%"));
             });
         }
-        $deductions = $query->orderByDesc('ID')->paginate(15)->withQueryString();
+        $deductions = $query->orderByDesc('ID')->paginate($perPage)->withQueryString();
 
         return view('admin.deductions.stopped', [
             'deductions' => $deductions,
@@ -789,6 +774,7 @@ class loanController extends Controller
             'search'     => $search,
             'counts'     => $counts,
             'atRisk'     => $atRisk,
+            'perPage'    => $perPage,
         ]);
     }
 

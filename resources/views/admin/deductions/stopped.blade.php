@@ -3,16 +3,17 @@
 @php
     use Carbon\Carbon;
     $money = fn ($x) => $x === null ? '—' : number_format((float) $x, 2, '.', ',');
-    $tabs = ['pending' => 'Pending review', 'reviewed' => 'Reviewed', 'notfound' => 'Loan not found', 'all' => 'All'];
+    $tabs = \App\Models\LoanDeduction::FILTERS;
     $stopDate = function ($d) { if (empty($d)) return '—'; try { return Carbon::parse($d)->format('d M Y'); } catch (\Throwable $e) { return $d; } };
 @endphp
 @section('content')
   @component('components.breadcrumb')
     @slot('breadcrumb_title')
-      <h3>Stopped Deductions</h3>
+      <h3>Stopped Deductions · {{ $tabs[$filter] }}</h3>
     @endslot
     <li class="breadcrumb-item">Deductions</li>
-    <li class="breadcrumb-item active">Stopped</li>
+    <li class="breadcrumb-item">Stopped</li>
+    <li class="breadcrumb-item active">{{ $tabs[$filter] }}</li>
   @endcomponent
 
 <style>
@@ -25,6 +26,10 @@
   .sd-kpi b small{font-size:12px;color:var(--mut);font-weight:600;margin-right:3px;}
   .sd-card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 10px rgba(15,35,80,.04);}
   .sd-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid var(--line);}
+  .sd-title b{font-size:15px;} .sd-count{margin-left:8px;color:var(--mut);font-size:12.5px;}
+  .sd-per{border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:12.5px;background:#fff;}
+  .sd-pager{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--mut);}
+  .sd-pager .pagination{margin:0;}
   .sd-tabs{display:flex;gap:6px;flex-wrap:wrap;}
   .sd-tabs a{padding:6px 12px;border-radius:20px;border:1px solid var(--line);font-size:12.5px;font-weight:600;color:#475569;}
   .sd-tabs a.on{background:var(--b);border-color:var(--b);color:#fff;}
@@ -38,6 +43,8 @@
   .sd-table th{background:var(--soft);color:#475569;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:2px solid var(--line);white-space:nowrap;}
   .sd-table td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
   .sd-table tr:hover td{background:#fafcff;}
+  .sd-table td:nth-child(2){min-width:190px;} .sd-table td:nth-child(3){min-width:200px;}
+  .sd-table .sd-btn{white-space:nowrap;}
   .sd-table .r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:700;}
   .sd-sub{display:block;color:var(--mut);font-size:11.5px;margin-top:2px;}
   .sd-mono{font-family:SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;}
@@ -66,20 +73,22 @@
 
   <div class="sd-card">
     <div class="sd-bar">
-      <div class="sd-tabs">
-        @foreach($tabs as $key => $label)
-          <a href="{{ route('deductions-stopped', array_filter(['filter' => $key, 'q' => $search])) }}" class="{{ $filter === $key ? 'on' : '' }}">{{ $label }}<span class="n">{{ $counts[$key] }}</span></a>
-        @endforeach
+      <div class="sd-title">
+        <b>{{ $tabs[$filter] }}</b>
+        <span class="sd-count">{{ number_format($deductions->total()) }} record{{ $deductions->total() == 1 ? '' : 's' }}{{ $search !== '' ? ' matching "'.$search.'"' : '' }}</span>
       </div>
       <form class="sd-search" method="get" action="{{ route('deductions-stopped') }}">
         <input type="hidden" name="filter" value="{{ $filter }}">
+        <select name="per_page" class="sd-per" onchange="this.form.submit()" title="Rows per page">
+          @foreach([15, 25, 50, 100] as $n)<option value="{{ $n }}" {{ $perPage == $n ? 'selected' : '' }}>{{ $n }} / page</option>@endforeach
+        </select>
         <input type="text" name="q" value="{{ $search }}" placeholder="Check no., loan no., application no. or name">
         <button class="btn btn-primary sd-btn" type="submit"><i class="fa fa-search"></i></button>
       </form>
     </div>
 
     @if($deductions->isEmpty())
-      <div class="sd-empty"><i class="fa fa-check-circle fa-2x d-block mb-2" style="color:#86efac"></i>No deduction stops {{ $filter === 'all' ? '' : 'in "'.$tabs[$filter].'"' }}.</div>
+      <div class="sd-empty"><i class="fa fa-check-circle fa-2x d-block mb-2" style="color:#86efac"></i>No deduction stops {{ $filter === 'all' ? '' : 'in "'.$tabs[$filter].'"' }}{{ $search !== '' ? ' matching "'.$search.'"' : '' }}.</div>
     @else
       <div class="sd-scroll">
         <table class="sd-table">
@@ -130,7 +139,10 @@
           </tbody>
         </table>
       </div>
-      <div class="p-3">{{ $deductions->links() }}</div>
+      <div class="sd-pager">
+        <span>Showing <b>{{ number_format($deductions->firstItem()) }}</b>–<b>{{ number_format($deductions->lastItem()) }}</b> of <b>{{ number_format($deductions->total()) }}</b></span>
+        <div>{{ $deductions->onEachSide(1)->links() }}</div>
+      </div>
     @endif
   </div>
   <p class="text-muted mt-3" style="font-size:12px">

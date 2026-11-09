@@ -32,17 +32,55 @@ class LoanDeduction extends Model
         return $this->belongsTo(LOANAPPLICATION::class, 'LOAN_APPLICATION_ID', 'ID');
     }
 
-    /** Stops not yet reviewed, scoped to the user's branch for Branch Operations. */
-    public static function pendingReviewCount($user = null): int
+    public const FILTERS = [
+        'pending'  => 'Pending Review',
+        'reviewed' => 'Reviewed',
+        'notfound' => 'Loan Not Found',
+        'all'      => 'All Stopped',
+    ];
+
+    /** Stops visible to the user: Branch Operations see their own branch only. */
+    public static function visibleTo($user)
     {
-        if (!self::tableReady()) {
-            return 0;
-        }
-        $q = self::whereNull('REVIEWED_DATE');
+        $q = self::query();
         if ($user && $user->role == 'Branch Operations') {
             $q->whereHas('loan', fn ($l) => $l->where('INIT_BRANCH', $user->branch_id));
         }
-        return $q->count();
+        return $q;
+    }
+
+    /** Applies one of FILTERS to a query. */
+    public static function applyFilter($query, string $filter)
+    {
+        if ($filter === 'pending') {
+            $query->whereNull('REVIEWED_DATE');
+        } elseif ($filter === 'reviewed') {
+            $query->whereNotNull('REVIEWED_DATE');
+        } elseif ($filter === 'notfound') {
+            $query->where('STATUS', 'LOAN_NOT_FOUND');
+        }
+        return $query;
+    }
+
+    /** Count per filter for the user (computed once per request; used by the menu and the page). */
+    public static function counts($user = null): array
+    {
+        static $cache = [];
+        $key = $user ? $user->id : 0;
+        if (!isset($cache[$key])) {
+            $cache[$key] = array_fill_keys(array_keys(self::FILTERS), 0);
+            if (self::tableReady()) {
+                foreach (array_keys(self::FILTERS) as $f) {
+                    $cache[$key][$f] = self::applyFilter(self::visibleTo($user), $f)->count();
+                }
+            }
+        }
+        return $cache[$key];
+    }
+
+    public static function pendingReviewCount($user = null): int
+    {
+        return self::counts($user)['pending'];
     }
 
     /** The table and its review columns are created by the ESS gateway; until it is updated the portal hides this feature. */

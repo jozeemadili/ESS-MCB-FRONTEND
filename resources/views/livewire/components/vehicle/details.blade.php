@@ -49,6 +49,7 @@
     $receivedAt = $local($vehicle->APPLICATION_DATE);
     $employerAt = $local($vehicle->APPROVED_DATE);
     $disbursedAt = $local($vehicle->LOAN_DISBURSED_DATE);
+    $coAt = $local($vehicle->CO_DECISION_DATE); // set by the gateway when ESS accepts the CO decision
 
     $rejected = $tx === 'rejected' || $ls === 'rejected';
     $cancelled = $ls === 'cancelled' || $tx === 'cancelled';
@@ -61,9 +62,10 @@
     $steps = [
         ['key' => 'applied',  'title' => 'Applied on ESS',            'who' => 'Employee (ESS Utumishi)', 'at' => $appliedAt,  'state' => 'done', 'note' => $appliedAt ? null : 'Date not provided by ESS'],
         ['key' => 'received', 'title' => 'Received at MCB',           'who' => 'ESS gateway',              'at' => $receivedAt, 'state' => 'done'],
-        ['key' => 'co',       'title' => 'Credit Officer review',     'who' => 'Credit Officer',           'at' => null,
+        ['key' => 'co',       'title' => 'Credit Officer review'.($coDone ? (($ls === 'rejected' && !$employerDone) ? ' – rejected' : ' – accepted') : ''),
+            'who' => $vehicle->CO_DECISION_BY ?: 'Credit Officer', 'at' => $coAt,
             'state' => $coDone ? (($ls === 'rejected' && !$employerDone) ? 'rejected' : 'done') : ($cancelled || $rejected ? 'rejected' : 'current'),
-            'note' => $coDone ? 'Time of CO decision is not recorded by the system' : null],
+            'note' => ($coDone && !$coAt) ? 'Decision time not recorded (decided before the portal started recording it)' : null],
         ['key' => 'employer', 'title' => 'Employer approval (ESS)',   'who' => $v($vehicle->APPROVED_BY) !== '—' ? $vehicle->APPROVED_BY : 'Employer / HR via ESS', 'at' => $employerAt,
             'state' => $employerDone ? 'done' : (($rejected || $cancelled) && $coDone ? 'rejected' : ($coDone ? 'current' : 'waiting')),
             'note' => ($employerDone && !$employerAt) ? 'Approval time not recorded' : null],
@@ -469,6 +471,7 @@
         <dl class="m-0">
           <div class="lp-f"><dt>Transaction Status</dt><dd><span class="lp-pill soft {{ $pill($vehicle->TRANSACTION_STATUS) }}">{{ $v($vehicle->TRANSACTION_STATUS) }}</span></dd></div>
           <div class="lp-f"><dt>Approval Description</dt><dd>{{ $v($vehicle->APPROVAL_DESCRIPTION) }}</dd></div>
+          <div class="lp-f"><dt>Credit Officer Decision</dt><dd>{{ $v($vehicle->CO_DECISION_BY) }}{{ $vehicle->CO_DECISION_DATE ? ' · '.$dt($vehicle->CO_DECISION_DATE, true) : '' }}</dd></div>
           <div class="lp-f"><dt>Approved By</dt><dd>{{ $v($vehicle->APPROVED_BY) }}</dd></div>
           <div class="lp-f"><dt>Approved Date</dt><dd>{{ $dt($vehicle->APPROVED_DATE, true) }}</dd></div>
           <div class="lp-f"><dt>Reason</dt><dd>{{ $v($vehicle->REASON) }}</dd></div>

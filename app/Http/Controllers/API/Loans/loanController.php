@@ -530,12 +530,13 @@ class loanController extends Controller
             {
                 // $endPoint='http://172.16.3.198:30002/api/v2/hmcis/initial-loan-approval';
                 $endPoint='initial-loan-approval';
-                $body='{
-                    "loanApplication":'.$request->id.',
-                    "status":"'.$request->status.'",
-                    "remarks":"'.$request->reason.'"
-                }
-               ';
+                // decidedBy: the gateway saves it with the decision time (CO_DECISION_BY / CO_DECISION_DATE)
+                $body = json_encode([
+                    'loanApplication' => (int) $request->id,
+                    'status'          => $request->status,
+                    'remarks'         => $request->reason,
+                    'decidedBy'       => self::userDisplayName(),
+                ]);
             
                 $response = EsbClient::SendesbRequestbody($body,$endPoint); 
                 $status = $response->status;
@@ -604,12 +605,13 @@ class loanController extends Controller
             {
                 // $endPoint='http://172.16.3.198:30002/api/v2/hmcis/initial-loan-approval';
                 $endPoint='initial-loan-approval';
-                $body='{
-                    "loanApplication":'.$request->id.',
-                    "status":"'.$request->status.'",
-                    "remarks":"'.$request->reason.'"
-                }
-               ';
+                // decidedBy: the gateway saves it with the decision time (CO_DECISION_BY / CO_DECISION_DATE)
+                $body = json_encode([
+                    'loanApplication' => (int) $request->id,
+                    'status'          => $request->status,
+                    'remarks'         => $request->reason,
+                    'decidedBy'       => self::userDisplayName(),
+                ]);
                 $response = EsbClient::SendesbRequestbody($body,$endPoint); 
                 $status = $response->status;
                 $statusDescription = $response->statusDescription;
@@ -731,6 +733,14 @@ class loanController extends Controller
      * Bank-initiated restructure proposal (LOAN_RESTRUCTURE_REQUEST_FSP) for a disbursed loan.
      * The Java gateway calculates the new terms from the principal balance and sends the proposal to ESS.
      */
+    /** Logged-in user's name; some users have the full name in first_name, so the last name is not repeated. */
+    private static function userDisplayName(): string
+    {
+        $first = trim((string) Auth::user()->first_name);
+        $last = trim((string) Auth::user()->last_name);
+        return ($last === '' || stripos($first, $last) !== false) ? $first : trim($first . ' ' . $last);
+    }
+
     /**
      * Deduction stops received from ESS (DEDUCTION_STOP_NOTIFICATION). Filter: pending (not reviewed), reviewed,
      * notfound (loan number unknown to MCB) or all.
@@ -802,9 +812,7 @@ class loanController extends Controller
         if ($stop->REVIEWED_DATE) {
             return back()->with('success', '<b>FAILED</b>, this deduction stop was already reviewed by ' . e($stop->REVIEWED_BY) . '.');
         }
-        $first = trim((string) Auth::user()->first_name);
-        $last = trim((string) Auth::user()->last_name);
-        $stop->REVIEWED_BY = ($last === '' || stripos($first, $last) !== false) ? $first : trim($first . ' ' . $last);
+        $stop->REVIEWED_BY = self::userDisplayName();
         $stop->REVIEWED_DATE = now('Africa/Dar_es_Salaam')->format('Y-m-d H:i:s'); // same local time as RECEIVED_DATE
         $stop->REVIEW_REMARKS = $request->remarks;
         $stop->save();

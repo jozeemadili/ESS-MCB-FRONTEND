@@ -52,7 +52,7 @@
   .db-delta.up{background:#e7f7ee;color:var(--g);} .db-delta.down{background:#fdecec;color:var(--r);}
   .db-meter{height:6px;border-radius:6px;background:#eef2f8;margin-top:8px;overflow:hidden;}
   .db-meter span{display:block;height:100%;background:linear-gradient(90deg,var(--g),#4ade80);border-radius:6px;}
-  .db-queue{display:grid;grid-template-columns:repeat(8,1fr);gap:12px;}
+  .db-queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:12px;}
   @media (max-width:1399px){.db-queue{grid-template-columns:repeat(4,1fr);}}
   @media (max-width:575px){.db-queue{grid-template-columns:repeat(2,1fr);}}
   .db-q{display:block;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--soft);transition:.15s;color:var(--ink);}

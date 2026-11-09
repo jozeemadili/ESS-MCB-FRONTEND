@@ -68,6 +68,15 @@
                             <li><a href="{{route('outgoing-payment-request')}}" class="{{routeActive('outgoing-payment-request')}}"> - Outgoing Payment Request</a></li> 
                         </ul>
                     </li>
+                    @if(\App\Models\LoanDeduction::tableReady())
+                    @php $stoppedPending = \App\Models\LoanDeduction::pendingReviewCount(Auth::user()); @endphp
+                    <li class="dropdown">
+                        <a class="nav-link menu-title {{ request()->is('v1/loans/deductions*') ? 'active' : '' }}" href="javascript:void(0)"><i data-feather="alert-octagon"></i><span>Deductions @if($stoppedPending > 0)<span class="badge rounded-pill" style="background:#dc2626;color:#fff;font-size:10px;margin-left:4px">{{ $stoppedPending }}</span>@endif</span></a>
+                        <ul class="nav-submenu menu-content" style="display: {{ request()->is('v1/loans/deductions*') ? 'block' : '' }};">
+                            <li><a href="{{ route('deductions-stopped', ['filter' => 'pending']) }}" class="{{ routeActive('deductions-stopped') }}"> - Stopped Deductions</a></li>
+                        </ul>
+                    </li>
+                    @endif
                     <li class="dropdown">
                         <a class="nav-link menu-title {{(request()->is('v1/intermediary/*')) ? 'active' : ''}}" href="javascript:void(0)"><i data-feather="link"></i><span>Reports</span></a>
                         <ul class="nav-submenu menu-content" style="display: {{ (request()->is('v1/intermediary/*')) ? 'block' : '' }};">

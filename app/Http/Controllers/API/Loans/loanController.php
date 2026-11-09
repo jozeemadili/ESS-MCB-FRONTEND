@@ -16,6 +16,7 @@ use App\Models\CUSTOMER;
 use App\Models\DisburmentApprovalStage;
 use App\Models\LOAN;
 use App\Models\LOANAPPLICATION;
+use App\Models\LoanDeduction;
 use App\Models\PAYMENT;
 use App\Models\PAYMENTADVICE;
 use App\Models\INCOMMINGPAYMENT;
@@ -730,6 +731,86 @@ class loanController extends Controller
      * Bank-initiated restructure proposal (LOAN_RESTRUCTURE_REQUEST_FSP) for a disbursed loan.
      * The Java gateway calculates the new terms from the principal balance and sends the proposal to ESS.
      */
+    /**
+     * Deduction stops received from ESS (DEDUCTION_STOP_NOTIFICATION). Filter: pending (not reviewed), reviewed,
+     * notfound (loan number unknown to MCB) or all.
+     */
+    public function getStoppedDeductions(Request $request)
+    {
+        if (!LoanDeduction::tableReady()) {
+            return redirect()->route('home')->with('success', '<b>NOT AVAILABLE</b>, update the ESS gateway first (it creates the LOAN_DEDUCTIONS columns).');
+        }
+        $filter = $request->query('filter', 'pending');
+        $search = trim((string) $request->query('q', ''));
+
+        $base = LoanDeduction::query()->with('loan');
+        if (Auth::user()->role == 'Branch Operations') {
+            $base->whereHas('loan', fn ($l) => $l->where('INIT_BRANCH', Auth::user()->branch_id));
+        }
+        $counts = [
+            'pending'  => (clone $base)->whereNull('REVIEWED_DATE')->count(),
+            'reviewed' => (clone $base)->whereNotNull('REVIEWED_DATE')->count(),
+            'notfound' => (clone $base)->where('STATUS', 'LOAN_NOT_FOUND')->count(),
+            'all'      => (clone $base)->count(),
+        ];
+        $atRisk = (float) (clone $base)->whereNull('REVIEWED_DATE')->sum('BALANCE_AMOUNT');
+
+        $query = clone $base;
+        if ($filter === 'pending') {
+            $query->whereNull('REVIEWED_DATE');
+        } elseif ($filter === 'reviewed') {
+            $query->whereNotNull('REVIEWED_DATE');
+        } elseif ($filter === 'notfound') {
+            $query->where('STATUS', 'LOAN_NOT_FOUND');
+        }
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('CHECK_NUMBER', 'like', "%$search%")
+                  ->orWhere('LOAN_NUMBER', 'like', "%$search%")
+                  ->orWhere('APPLICATION_NUMBER', 'like', "%$search%")
+                  ->orWhereHas('loan', fn ($l) => $l->where('FIRST_NAME', 'like', "%$search%")->orWhere('LAST_NAME', 'like', "%$search%"));
+            });
+        }
+        $deductions = $query->orderByDesc('ID')->paginate(15)->withQueryString();
+
+        return view('admin.deductions.stopped', [
+            'deductions' => $deductions,
+            'filter'     => $filter,
+            'search'     => $search,
+            'counts'     => $counts,
+            'atRisk'     => $atRisk,
+        ]);
+    }
+
+    /** Marks a deduction stop as reviewed by MCB staff, with remarks (e.g. the recovery action taken). */
+    public function reviewStoppedDeduction(Request $request)
+    {
+        $request->validate([
+            'id'      => ['required', 'integer'],
+            'remarks' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+        if (Auth::user()->role == 'Reports') {
+            return back()->with('success', '<b>FAILED</b>, your role cannot review deduction stops.');
+        }
+        $stop = LoanDeduction::find($request->id);
+        if ($stop == null) {
+            return back()->with('success', '<b>FAILED</b>, deduction stop not found.');
+        }
+        if (Auth::user()->role == 'Branch Operations' && optional($stop->loan)->INIT_BRANCH != Auth::user()->branch_id) {
+            return back()->with('success', '<b>FAILED</b>, this loan belongs to another branch.');
+        }
+        if ($stop->REVIEWED_DATE) {
+            return back()->with('success', '<b>FAILED</b>, this deduction stop was already reviewed by ' . e($stop->REVIEWED_BY) . '.');
+        }
+        $first = trim((string) Auth::user()->first_name);
+        $last = trim((string) Auth::user()->last_name);
+        $stop->REVIEWED_BY = ($last === '' || stripos($first, $last) !== false) ? $first : trim($first . ' ' . $last);
+        $stop->REVIEWED_DATE = now('Africa/Dar_es_Salaam')->format('Y-m-d H:i:s'); // same local time as RECEIVED_DATE
+        $stop->REVIEW_REMARKS = $request->remarks;
+        $stop->save();
+        return back()->with('success', '<b>SUCCESS</b>, deduction stop for loan ' . e($stop->LOAN_NUMBER) . ' marked as reviewed.');
+    }
+
     /** Restructure calculator page: the officer tries tenures / instalments before sending the proposal to ESS. */
     public function restructureCalculator($id)
     {

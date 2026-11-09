@@ -201,6 +201,43 @@
   </div>
 </div>
 
+{{-- ===== Deduction stop from ESS (DEDUCTION_STOP_NOTIFICATION) ===== --}}
+@php
+    $deductionStops = \App\Models\LoanDeduction::tableReady()
+        ? \App\Models\LoanDeduction::where('LOAN_APPLICATION_ID', $vehicle->ID)->orderByDesc('ID')->get()
+        : collect();
+@endphp
+@foreach($deductionStops as $stop)
+<div class="lp-card" style="border-color:#fca5a5;background:#fff7f7">
+  <div class="lp-card-b" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+    <div style="width:42px;height:42px;border-radius:50%;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 42px"><i class="fa fa-ban"></i></div>
+    <div style="flex:1;min-width:240px">
+      <div style="font-weight:800;color:#b91c1c;font-size:15px">Employer has stopped the salary deduction for this loan</div>
+      <div style="font-size:12.5px;color:#4b5563;margin-top:3px">
+        Reason: <b>{{ $stop->STOP_REASON ?: 'Not given' }}</b> ·
+        Stop date: <b>{{ $stop->STOP_DATE ? \Illuminate\Support\Str::of($stop->STOP_DATE)->before('T') : '—' }}</b> ·
+        Balance: <b>TZS {{ number_format((float) $stop->BALANCE_AMOUNT, 2) }}</b> ·
+        Deduction: <b>TZS {{ number_format((float) $stop->DEDUCTION_AMOUNT, 2) }}</b>
+      </div>
+      <div style="font-size:12px;color:#6b7280;margin-top:3px">
+        Received from ESS {{ $stop->RECEIVED_DATE ? $stop->RECEIVED_DATE->format('d M Y H:i') : '' }}
+        @if($stop->PREVIOUS_LOAN_STATUS) · loan status was {{ $stop->PREVIOUS_LOAN_STATUS }} @endif
+      </div>
+    </div>
+    <div style="text-align:right">
+      @if($stop->REVIEWED_DATE)
+        <span class="lp-pill soft green">Reviewed</span>
+        <div style="font-size:11.5px;color:#6b7280;margin-top:4px">{{ $stop->REVIEWED_BY }} · {{ $stop->REVIEWED_DATE->format('d M Y') }}</div>
+        <div style="font-size:11.5px;color:#374151;max-width:260px">{{ $stop->REVIEW_REMARKS }}</div>
+      @else
+        <span class="lp-pill soft red">Pending review</span>
+        <div style="margin-top:6px"><a class="btn btn-sm btn-outline-danger" style="border-radius:8px" href="{{ route('deductions-stopped', ['filter' => 'pending', 'q' => $vehicle->LOAN_ID]) }}">Review</a></div>
+      @endif
+    </div>
+  </div>
+</div>
+@endforeach
+
 {{-- ===== Approval journey & TAT ===== --}}
 <div class="lp-card">
   <div class="lp-card-h">

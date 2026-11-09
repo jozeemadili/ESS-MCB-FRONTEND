@@ -100,6 +100,11 @@ class DashboardController extends Controller
             ['label' => 'Rejected',         'count' => $live()->where('TRANSACTION_STATUS', 'Rejected')->count(),                                   'route' => route('loans-rejected'),    'icon' => 'x-octagon',    'tone' => 'danger'],
         ];
 
+        if (\App\Models\LoanDeduction::tableReady()) {
+            $queue[] = ['label' => 'Deduction stopped', 'count' => \App\Models\LoanDeduction::pendingReviewCount(Auth::user()),
+                        'route' => route('deductions-stopped', ['filter' => 'pending']), 'icon' => 'alert-octagon', 'tone' => 'danger'];
+        }
+
         // Ageing of applications still waiting for the Credit Officer
         $now = Carbon::now(self::TZ);
         $waitingCo = fn () => $live()->where('TRANSACTION_STATUS', 'Pending')->where('LOAN_STATUS', 'Pending');

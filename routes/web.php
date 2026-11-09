@@ -26,7 +26,7 @@ Route::get('/how-to-use', [PortalUsersController::class, 'howToUse'])->name('how
 Route::group(['prefix' => 'v1/','middleware' => ['auth']], function()
 {
     Route::get('logout',[PortalUsersController::class, 'logout'])->name('logout');
-    Route::view('dashboard', 'admin.dashboard.home')->name('home');
+    Route::get('dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])->name('home');
     Route::view('summary', 'admin.dashboard.general_summary')->name('general');
     // my routes
     Route::get('properties/staff/registration/profile/{id}',[loanController::class, 'profile'])->name('staff-profile');

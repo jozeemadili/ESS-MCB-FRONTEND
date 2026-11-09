@@ -49,6 +49,18 @@
                         </ul>
                     </li>
                     <li class="dropdown">
+                        <a class="nav-link menu-title {{(request()->is('v1/loans/restructur*')) ? 'active' : ''}}" href="javascript:void(0)"><i data-feather="repeat"></i><span>Restructuring</span></a>
+                        <ul class="nav-submenu menu-content" style="display: {{ (request()->is('v1/loans/restructur*')) ? 'block' : '' }};">
+                            <li><a href="{{route('loans-restructuring', ['stage' => 'pending'])}}" class="{{ request('stage') == 'pending' ? 'active' : '' }}"> - Waiting CO</a></li>
+                            <li><a href="{{route('loans-restructuring', ['stage' => 'accepted'])}}" class="{{ request('stage') == 'accepted' ? 'active' : '' }}"> - Accepted By Bank</a></li>
+                            <li><a href="{{route('loans-restructuring', ['stage' => 'approved'])}}" class="{{ request('stage') == 'approved' ? 'active' : '' }}"> - Approved By Employer</a></li>
+                            <li><a href="{{route('loans-restructuring', ['stage' => 'completed'])}}" class="{{ request('stage') == 'completed' ? 'active' : '' }}"> - Completed</a></li>
+                            <li><a href="{{route('loans-restructuring', ['stage' => 'rejected'])}}" class="{{ request('stage') == 'rejected' ? 'active' : '' }}"> - Rejected / Cancelled</a></li>
+                            <li><a href="{{route('loans-restructuring', ['stage' => 'all'])}}" class="{{ request('stage') == 'all' ? 'active' : '' }}"> - All Restructures</a></li>
+                            <li><a href="{{route('loans-restructured')}}" class="{{routeActive('loans-restructured')}}"> - Original Loans Restructured</a></li>
+                        </ul>
+                    </li>
+                    <li class="dropdown">
                         <a class="nav-link menu-title {{(request()->is('v1/intermediary/*')) ? 'active' : ''}}" href="javascript:void(0)"><i data-feather="link"></i><span>Take Over Loans</span></a>
                         <ul class="nav-submenu menu-content" style="display: {{ (request()->is('v1/intermediary/*')) ? 'block' : '' }};">
                             <li><a href="{{route('outstanding-balance-requests')}}" class="{{routeActive('outstanding-balance-requests')}}"> - Balance Outstanding Requests </a></li>

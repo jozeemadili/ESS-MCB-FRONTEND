@@ -677,6 +677,98 @@ class loanController extends Controller
         {
 
         }
-       
-    } 
+
+    }
+
+    /**
+     * Restructure applications (LOAN_TYPE = RESTRUCTURING) by stage:
+     * pending (waiting CO), accepted (by bank), approved (by employer), completed, rejected, all.
+     */
+    public function getRestructuring(Request $request)
+    {
+        $stage = $request->query('stage', 'pending');
+        $query = LOANAPPLICATION::where('LOAN_TYPE', 'RESTRUCTURING');
+
+        switch ($stage) {
+            case 'pending':
+                $query->where('TRANSACTION_STATUS', 'Pending')->where('LOAN_STATUS', 'Pending');
+                break;
+            case 'accepted':
+                $query->where('TRANSACTION_STATUS', 'Pending')->where('LOAN_STATUS', 'Accepted');
+                break;
+            case 'approved':
+                $query->where('TRANSACTION_STATUS', 'Approved');
+                break;
+            case 'completed':
+                $query->whereIn('TRANSACTION_STATUS', ['Posted to CBS', 'Disbursed']);
+                break;
+            case 'rejected':
+                $query->whereIn('LOAN_STATUS', ['Rejected', 'Cancelled']);
+                break;
+        }
+
+        if (Auth::user()->role == 'Branch Operations') {
+            $query->where('INIT_BRANCH', Auth::user()->branch_id);
+        }
+
+        $loans_datails = $query->orderBy('ID', 'desc')->paginate(15)->withQueryString();
+        return view('admin.intermediaries.branches', ['loans' => $loans_datails]);
+    }
+
+    /** Original loans that were replaced by a completed restructure (TRANSACTION_STATUS = Restructured). */
+    public function getRestructuredOriginals()
+    {
+        $query = LOANAPPLICATION::where('TRANSACTION_STATUS', 'Restructured');
+        if (Auth::user()->role == 'Branch Operations') {
+            $query->where('INIT_BRANCH', Auth::user()->branch_id);
+        }
+        $loans_datails = $query->orderBy('ID', 'desc')->paginate(15);
+        return view('admin.intermediaries.branches', ['loans' => $loans_datails]);
+    }
+
+    /**
+     * Bank-initiated restructure proposal (LOAN_RESTRUCTURE_REQUEST_FSP) for a disbursed loan.
+     * The Java gateway calculates the new terms from the principal balance and sends the proposal to ESS.
+     */
+    public function proposeRestructure(Request $request)
+    {
+        $request->validate([
+            'id'          => ['required', 'integer'],
+            'tenure'      => ['nullable', 'integer', 'min:1'],
+            'installment' => ['nullable', 'numeric', 'min:1'],
+            'reason'      => ['required', 'string', 'max:255'],
+        ]);
+
+        $profile = 'v1/properties/staff/registration/profile/' . $request->id;
+
+        if (Auth::user()->role != 'Credit Officer') {
+            return redirect($profile)->with('success', '<b>FAILED</b>, only a Credit Officer can propose a restructure.');
+        }
+        if (empty($request->tenure) == empty($request->installment)) {
+            return redirect($profile)->with('success', '<b>FAILED</b>, enter either the new tenure or the new monthly instalment (not both).');
+        }
+
+        $loan = LOANAPPLICATION::find($request->id);
+        if ($loan == null || $loan->TRANSACTION_STATUS !== 'Disbursed') {
+            return redirect($profile)->with('success', '<b>FAILED</b>, only a disbursed loan can be restructured.');
+        }
+
+        $body = json_encode([
+            'loanApplication' => $loan->LOAN_ID,
+            'tenure'          => empty($request->tenure) ? null : (int) $request->tenure,
+            'installment'     => empty($request->installment) ? 0 : (float) $request->installment,
+            'reason'          => $request->reason,
+        ]);
+
+        try {
+            $response = EsbClient::SendesbRequestbody($body, 'restructure');
+            if ($response != null && isset($response->statusCode) && $response->statusCode === 200) {
+                return redirect($profile)->with('success', '<b>SUCCESS</b>, ' . e($response->statusDescription));
+            }
+            $description = ($response != null && isset($response->statusDescription)) ? $response->statusDescription : 'No response from the ESS gateway';
+            return redirect($profile)->with('success', '<b>FAILED</b>, ' . e($description));
+        } catch (Exception $e) {
+            return redirect($profile)->with('success', '<b>FAILED</b>, the ESS gateway is not reachable: ' . e($e->getMessage()));
+        }
+    }
 }

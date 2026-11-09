@@ -127,6 +127,74 @@
      </div>
      <!-- end ribon -->
        <!-- end ribon -->
+     @if($vehicle->LOAN_TYPE === 'RESTRUCTURING')
+     @php
+        $oldInstalment = \App\Http\Livewire\Components\Vehicle\Details::instalment($original_loan);
+        $newInstalment = \App\Http\Livewire\Components\Vehicle\Details::instalment($vehicle);
+        $principal = !empty($vehicle->SETTLEMENT_AMOUNT) ? (float) $vehicle->SETTLEMENT_AMOUNT : (float) $vehicle->REQUESTED_AMOUNT;
+     @endphp
+     <div class="ribbon-wrapper card">
+                <div class="card-body">
+                    <div class="ribbon ribbon-clip ribbon-warning">Restructure: Old vs New Terms</div>
+                    <div class="row">
+                    <div class="col-lg-6">
+                    <h6 class="mt-2">Existing loan</h6>
+                    <ul class="list-group">
+                        @if($original_loan)
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Original Loan<span><a href="{{ Route('staff-profile', ['id' => $original_loan->ID]) }}" class="badge badge-primary rounded-pill">{{ $original_loan->LOAN_ID }}</a></span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Original Amount<span class="badge badge-primary rounded-pill">{{ number_format($original_loan->TOTAL_AMOUNT, 2,'.',',') }} TZS</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Original Tenure<span class="badge badge-primary rounded-pill">{{ $original_loan->TENURE }} (Months)</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Current Instalment<span class="badge badge-primary rounded-pill">{{ number_format($oldInstalment, 2,'.',',') }} TZS</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Current Maturity<span class="badge badge-primary rounded-pill">{{ $original_loan->MATURITY_DATE ? $original_loan->MATURITY_DATE->format('d M Y') : '' }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Original Loan Status<span class="badge badge-primary rounded-pill">{{ $original_loan->TRANSACTION_STATUS }}</span></li>
+                        @else
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Original Loan<span class="badge badge-danger rounded-pill">{{ $vehicle->ORIGINAL_LOAN_ID ?? 'Not set' }} (not found)</span></li>
+                        @endif
+                    </ul>
+                    </div>
+                    <div class="col-lg-6">
+                    <h6 class="mt-2">After restructure</h6>
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Principal Restructured<span class="badge badge-primary rounded-pill">{{ number_format($principal, 2,'.',',') }} TZS</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">New Tenure<span class="badge badge-primary rounded-pill">{{ $vehicle->TENURE }} (Months)</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">New Instalment<span class="badge badge-primary rounded-pill">{{ number_format($newInstalment, 2,'.',',') }} TZS</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Processing Fee<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->PROCESSING_FEE, 2,'.',',') }} TZS</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Total Amount To Pay (incl. fee)<span class="badge badge-primary rounded-pill">{{ number_format($vehicle->TOTAL_AMOUNT_TO_PAY, 2,'.',',') }} TZS</span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">Loan Account (Profits)<span class="badge badge-primary rounded-pill">{{ $vehicle->DISBURSEMENT_RECEIPT }}{{ $vehicle->CHECK_DIGIT !== null ? ' / ' . $vehicle->CHECK_DIGIT : '' }}</span></li>
+                    </ul>
+                    </div>
+                    </div>
+                    <div class="alert alert-light-warning mt-3" role="alert">
+                        A restructure does not pay out money. Credit Operation must change the loan in Profits (new tenure / instalment)
+                        before completing it here; completing marks the original loan as <b>Restructured</b> and notifies ESS.
+                    </div>
+                </div>
+     </div>
+     @endif
+     @if($restructures->count() > 0)
+     <div class="ribbon-wrapper card">
+                <div class="card-body">
+                    <div class="ribbon ribbon-clip ribbon-warning">Restructure History</div>
+                    <div class="table-responsive mt-3">
+                    <table class="table table-sm">
+                        <thead><tr><th>Application</th><th>Date</th><th>Principal</th><th>Tenure</th><th>Instalment</th><th>Status</th></tr></thead>
+                        <tbody>
+                        @foreach($restructures as $restructure)
+                        <tr>
+                            <td><a href="{{ Route('staff-profile', ['id' => $restructure->ID]) }}">{{ $restructure->APPLICATION_NUMBER }}</a></td>
+                            <td>{{ $restructure->APPLICATION_DATE ? $restructure->APPLICATION_DATE->format('d M Y') : '' }}</td>
+                            <td>{{ number_format(!empty($restructure->SETTLEMENT_AMOUNT) ? (float) $restructure->SETTLEMENT_AMOUNT : (float) $restructure->REQUESTED_AMOUNT, 2,'.',',') }}</td>
+                            <td>{{ $restructure->TENURE }}</td>
+                            <td>{{ number_format(\App\Http\Livewire\Components\Vehicle\Details::instalment($restructure), 2,'.',',') }}</td>
+                            <td>{{ $restructure->TRANSACTION_STATUS }} / {{ $restructure->LOAN_STATUS }}</td>
+                        </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+     </div>
+     @endif
        <div class="ribbon-wrapper card">
                 <div class="card-body">
                     <div class="ribbon ribbon-clip ribbon-primary">Charges and Fees</div>
@@ -328,10 +396,10 @@
 
                     <div class="row">  
                             <div class="col-lg-6">
-                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newModal">Credit Admin  Disbursement Initiation <i class="icofont icofont-tick-boxed"></i></button>
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newModal">{{ $vehicle->LOAN_TYPE === 'RESTRUCTURING' ? 'Credit Admin Restructure Completion Initiation' : 'Credit Admin  Disbursement Initiation' }} <i class="icofont icofont-tick-boxed"></i></button>
                             </div>
                             <div class="col-lg-6">
-                                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newModalReject"> Credit Admin Reject Disbursement Initiation <i class="icofont icofont-trash"></i></button>
+                                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newModalReject"> {{ $vehicle->LOAN_TYPE === 'RESTRUCTURING' ? 'Credit Admin Reject Restructure' : 'Credit Admin Reject Disbursement Initiation' }} <i class="icofont icofont-trash"></i></button>
                             </div>
                     </div>
                     @endif
@@ -362,7 +430,7 @@
 <br/><br/>
                     <div class="row">  
                             <div class="col-lg-6">
-                                <button class="btn btn-primary  w-100" data-bs-toggle="modal" data-bs-target="#newModal"> Credit Operation Approve Request <i class="icofont icofont-tick-boxed"></i></button>
+                                <button class="btn btn-primary  w-100" data-bs-toggle="modal" data-bs-target="#newModal"> {{ $vehicle->LOAN_TYPE === 'RESTRUCTURING' ? 'Complete Restructure (after updating Profits)' : 'Credit Operation Approve Request' }} <i class="icofont icofont-tick-boxed"></i></button>
                             </div>
                             <div class="col-lg-6">
                                 <button class="btn btn-danger  w-100" data-bs-toggle="modal" data-bs-target="#newModalReject"> Credit Operation Reject Request <i class="icofont icofont-trash"></i></button>
@@ -411,6 +479,8 @@ WITH POPUP -->
             @else
             <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#newModalLiqudation"> Initiate Liqudation </button>
             @endif
+            <br/><br/>
+            <button class="btn btn-outline-warning w-100" data-bs-toggle="modal" data-bs-target="#newModalProposeRestructure"> Propose Restructure to Employee </button>
                          
         </div>
         @elseif(Auth::user()->role == 'Credit Admin' )
@@ -450,6 +520,52 @@ WITH POPUP -->
      </div>
      <!-- end ribon -->
     
+
+   <!-- PROPOSE RESTRUCTURE MODAL START -->
+   <div class="modal fade" id="newModalProposeRestructure" tabindex="-1" aria-hidden="true" style="display: none;">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Propose Restructure</h5>
+                <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close" ></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ Route('loans-restructuring-propose') }}" method="post">
+                    @csrf
+                    <input type="hidden" value="{{ $vehicle->ID }}" name="id">
+                    <p class="mb-2">Loan <b>{{ $vehicle->LOAN_ID }}</b>. The new terms are calculated from the loan's principal balance
+                        and sent to ESS; the employee accepts or rejects in the ESS portal.
+                        Enter <b>either</b> the new tenure <b>or</b> the new monthly instalment.</p>
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label class="col-form-label">New Tenure (Months)</label>
+                                <input class="form-control" type="number" min="1" name="tenure" value="{{ old('tenure') }}">
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label class="col-form-label">New Monthly Instalment (TZS)</label>
+                                <input class="form-control" type="number" min="1" step="0.01" name="installment" value="{{ old('installment') }}">
+                            </div>
+                        </div>
+                        <div class="col-lg-12">
+                            <div class="form-group">
+                                <label class="col-form-label">Reason</label>
+                                <textarea class="form-control" required maxlength="255" name="reason">{{ old('reason') }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-bs-dismiss="modal" >Close</button>
+                <button class="btn btn-warning" type="submit" > Send Proposal to ESS</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    </div>
+   <!-- PROPOSE RESTRUCTURE MODAL END -->
 
        <!-- SEARCH MODAL START -->
    <div class="modal fade" id="newModalLiqudation" tabindex="-1" aria-hidden="true" style="display: none;">

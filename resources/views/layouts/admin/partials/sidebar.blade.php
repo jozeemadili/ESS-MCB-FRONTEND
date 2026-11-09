@@ -60,12 +60,16 @@
                             <li><a href="{{route('loans-restructured')}}" class="{{routeActive('loans-restructured')}}"> - Original Loans Restructured</a></li>
                         </ul>
                     </li>
+                    @php
+                        $takeoverOpen = request()->is('v1/outstanding/*') || request()->is('v1/incoming/*') || request()->is('v1/outgoing/*');
+                        $takeoverPending = \App\Models\INCOMMINGPAYMENT::pendingCount();
+                    @endphp
                     <li class="dropdown">
-                        <a class="nav-link menu-title {{(request()->is('v1/intermediary/*')) ? 'active' : ''}}" href="javascript:void(0)"><i data-feather="link"></i><span>Take Over Loans</span></a>
-                        <ul class="nav-submenu menu-content" style="display: {{ (request()->is('v1/intermediary/*')) ? 'block' : '' }};">
-                            <li><a href="{{route('outstanding-balance-requests')}}" class="{{routeActive('outstanding-balance-requests')}}"> - Balance Outstanding Requests </a></li>
-                            <li><a href="{{route('incoming-payment-request')}}" class="{{routeActive('incoming-payment-request')}}"> - Incoming Payment Request</a></li> 
-                            <li><a href="{{route('outgoing-payment-request')}}" class="{{routeActive('outgoing-payment-request')}}"> - Outgoing Payment Request</a></li> 
+                        <a class="nav-link menu-title {{ $takeoverOpen ? 'active' : '' }}" href="javascript:void(0)"><i data-feather="shuffle"></i><span>Take Over Loans @if($takeoverPending > 0)<span class="badge rounded-pill" style="background:#f28c28;color:#fff;font-size:10px;margin-left:4px">{{ $takeoverPending }}</span>@endif</span></a>
+                        <ul class="nav-submenu menu-content" style="display: {{ $takeoverOpen ? 'block' : '' }};">
+                            <li><a href="{{route('outstanding-balance-requests')}}" class="{{routeActive('outstanding-balance-requests')}}"> - Payoff Quotes (our loans)</a></li>
+                            <li><a href="{{route('incoming-payment-request')}}" class="{{routeActive('incoming-payment-request')}}"> - Incoming Payments (our loans) @if($takeoverPending > 0)<span style="opacity:.7">({{ $takeoverPending }})</span>@endif</a></li>
+                            <li><a href="{{route('outgoing-payment-request')}}" class="{{routeActive('outgoing-payment-request')}}"> - Outgoing Payments (we take over)</a></li>
                         </ul>
                     </li>
                     @if(\App\Models\LoanDeduction::tableReady())

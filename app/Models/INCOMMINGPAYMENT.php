@@ -40,7 +40,8 @@ class INCOMMINGPAYMENT extends Model
 	];
 
 	protected $dates = [
-		'REQUEST_DATE'
+		'REQUEST_DATE',
+		'ACK_DATE'
 	];
 
 	protected $fillable = [
@@ -57,6 +58,57 @@ class INCOMMINGPAYMENT extends Model
 		'REQUEST_DATE',
 		'STATUS',
 		'STATUS_DESCRIPTION',
-		'TOTAL_PAYOFF_AMOUNT'
+		'TOTAL_PAYOFF_AMOUNT',
+		'APPLICATION_NUMBER',
+		'MESSAGE_ID',
+		'LOAN_APPLICATION_ID',
+		'BALANCE_REQUEST_ID',
+		'ACK_STATUS',
+		'ACK_REMARKS',
+		'ACK_BY',
+		'ACK_DATE'
 	];
+
+	/** Payments still to be confirmed to ESS (PAYMENT_ACKNOWLEDGMENT_NOTIFICATION; ESS expects it within two hours). */
+	public const PENDING_STATUSES = ['RECEIVED', 'ACK_FAILED'];
+
+	/** Payments received by the ESS gateway (they carry the ESS MsgId) that are not yet confirmed; older rows are legacy. */
+	public static function pending($query)
+	{
+		return $query->whereIn('STATUS', self::PENDING_STATUSES)->whereNotNull('MESSAGE_ID');
+	}
+
+	public function isPending(): bool
+	{
+		return in_array($this->STATUS, self::PENDING_STATUSES) && !empty($this->MESSAGE_ID);
+	}
+
+	public function loan()
+	{
+		return $this->belongsTo(LOANAPPLICATION::class, 'LOAN_APPLICATION_ID', 'ID');
+	}
+
+	public function quote()
+	{
+		return $this->belongsTo(TakeoverBalanceRequest::class, 'BALANCE_REQUEST_ID', 'ID');
+	}
+
+	/** The confirmation columns are added by the updated ESS gateway. */
+	public static function ackReady(): bool
+	{
+		static $ready = null;
+		if ($ready === null) {
+			try { $ready = \Illuminate\Support\Facades\Schema::hasColumn('INCOMMING_PAYMENT', 'ACK_STATUS'); } catch (\Throwable $e) { $ready = false; }
+		}
+		return $ready;
+	}
+
+	public static function pendingCount(): int
+	{
+		static $count = null;
+		if ($count === null) {
+			$count = self::ackReady() ? self::pending(self::query())->count() : 0;
+		}
+		return $count;
+	}
 }

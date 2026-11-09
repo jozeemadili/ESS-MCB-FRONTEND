@@ -39,6 +39,8 @@ Route::group(['prefix' => 'v1/','middleware' => ['auth']], function()
 
     Route::get('outstanding/balance/requests', [loanController::class, 'getOutstandingBalanceRequest'])->name('outstanding-balance-requests');
     Route::get('incoming/payment/request', [loanController::class, 'getIncomingPaymentRequest'])->name('incoming-payment-request');
+    Route::post('incoming/payment/confirm', [loanController::class, 'confirmTakeoverPayment'])->name('takeover-payment-confirm');
+    Route::get('incoming/payment/{id}/advice.pdf', [loanController::class, 'takeoverPaymentAdvicePdf'])->name('takeover-payment-advice-pdf');
     Route::get('outgoing/payment/request', [loanController::class, 'getOutgoingPaymentDetails'])->name('outgoing-payment-request');
     Route::get('incoming/payament/profile/{loan_id}',[loanController::class, 'incomingPaymentprofile'])->name('incoming-payament-profile');
     

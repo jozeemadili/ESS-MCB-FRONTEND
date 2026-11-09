@@ -240,6 +240,49 @@
 </div>
 @endforeach
 
+{{-- ===== Takeover of this MCB loan by another bank (MCB = FSP1) ===== --}}
+@php
+    $tkQuotes = \App\Models\TakeoverBalanceRequest::tableReady()
+        ? \App\Models\TakeoverBalanceRequest::where('LOAN_APPLICATION_ID', $vehicle->ID)->orderByDesc('ID')->get() : collect();
+    $tkPayments = \App\Models\INCOMMINGPAYMENT::ackReady()
+        ? \App\Models\INCOMMINGPAYMENT::where('LOAN_APPLICATION_ID', $vehicle->ID)->orderByDesc('ID')->get() : collect();
+@endphp
+@if($tkQuotes->isNotEmpty() || $tkPayments->isNotEmpty())
+<div class="lp-card" style="border-color:#fcd9b0">
+  <div class="lp-card-h" style="background:#fff8f0;border-radius:14px 14px 0 0">
+    <h6><i class="fa fa-random" style="color:#f28c28"></i> Takeover by another bank</h6>
+    <small>{{ $tkQuotes->count() }} payoff quote(s) · {{ $tkPayments->count() }} payment(s)</small>
+  </div>
+  <div class="lp-card-b">
+    <div class="row">
+      <div class="col-lg-6">
+        <h6 class="mb-1" style="font-size:12px;color:#6b7280">LATEST PAYOFF QUOTE</h6>
+        @php $q = $tkQuotes->first(); @endphp
+        @if($q)
+        <dl class="m-0">
+          <div class="lp-f"><dt>Payoff amount</dt><dd>{{ $money($q->TOTAL_PAYOFF_AMOUNT) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Pay to / reference</dt><dd class="mono">{{ $q->SETTLEMENT_ACCOUNT }} · {{ $q->PAYMENT_REFERENCE_NUMBER }}</dd></div>
+          <div class="lp-f"><dt>Quoted / valid until</dt><dd>{{ $dt($q->REQUEST_DATE, true) }} → {{ $dt($q->FINAL_PAYMENT_DATE, true) }}</dd></div>
+          <div class="lp-f"><dt>Status</dt><dd><span class="lp-pill soft {{ $q->STATUS === 'PAID' ? 'green' : 'grey' }}">{{ $q->STATUS === 'PAID' ? 'Paid' : 'Awaiting payment' }}</span></dd></div>
+        </dl>
+        @else<div class="text-muted small">No quote recorded.</div>@endif
+      </div>
+      <div class="col-lg-6">
+        <h6 class="mb-1" style="font-size:12px;color:#6b7280">PAYMENTS FROM THE OTHER BANK</h6>
+        @forelse($tkPayments as $tp)
+          <div class="lp-f"><dt>{{ $tp->PAYMENT_REFERENCE_NUMBER }}<br><small>{{ $tp->PAYMENT_DATE }}</small></dt>
+            <dd>{{ $money($tp->TOTAL_PAYOFF_AMOUNT) }} <small>TZS</small><br>
+              @if($tp->ACK_STATUS === 'SETTLED')<span class="lp-pill soft green">Settled</span>
+              @elseif($tp->ACK_STATUS === 'UNSETTLED')<span class="lp-pill soft red">Not settled</span>
+              @else<a href="{{ route('incoming-payment-request', ['filter' => 'pending', 'q' => $vehicle->LOAN_ID]) }}" class="lp-pill soft grey">To confirm</a>@endif
+            </dd></div>
+        @empty<div class="text-muted small">No payment received yet.</div>@endforelse
+      </div>
+    </div>
+  </div>
+</div>
+@endif
+
 {{-- ===== Approval journey & TAT ===== --}}
 <div class="lp-card">
   <div class="lp-card-h">

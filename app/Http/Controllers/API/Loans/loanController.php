@@ -17,6 +17,7 @@ use App\Models\DisburmentApprovalStage;
 use App\Models\LOAN;
 use App\Models\LOANAPPLICATION;
 use App\Models\LoanDeduction;
+use App\Models\TakeoverBalanceRequest;
 use App\Models\PAYMENT;
 use App\Models\PAYMENTADVICE;
 use App\Models\INCOMMINGPAYMENT;
@@ -75,20 +76,119 @@ class loanController extends Controller
         // $loans_datails= LOANAPPLICATION::whereTransaction_status('Pending')->orderBy('id','desc')->paginate(15);
         return view('admin.intermediaries.branches', ['loans' => $loans_datails]);   
     }
-    public function getOutstandingBalanceRequest()
+    /** Takeover, MCB = FSP1: payoff quotes MCB gave ESS for MCB loans another bank wants to take over. */
+    public function getOutstandingBalanceRequest(Request $request)
     {
-        $payment_datails = PAYMENTADVICE::orderBy('PAYMENT_DATE', 'asc')->paginate(15);
-        return view('admin.loan_take_over.payment_balance_request', ['payment_datails' => $payment_datails]);   
+        if (!TakeoverBalanceRequest::tableReady()) {
+            $payment_datails = PAYMENTADVICE::orderBy('PAYMENT_DATE', 'asc')->paginate(15);
+            return view('admin.loan_take_over.payment_balance_request', ['payment_datails' => $payment_datails]);
+        }
+        $filters = ['quoted' => 'Awaiting payment', 'paid' => 'Paid', 'expired' => 'Expired', 'all' => 'All quotes'];
+        $filter = array_key_exists($request->query('filter'), $filters) ? $request->query('filter') : 'all';
+        $search = trim((string) $request->query('q', ''));
+        $perPage = in_array((int) $request->query('per_page'), [15, 25, 50, 100]) ? (int) $request->query('per_page') : 15;
+        $now = now('Africa/Dar_es_Salaam')->format('Y-m-d H:i:s');
+
+        $base = TakeoverBalanceRequest::query();
+        if (Auth::user()->role == 'Branch Operations') {
+            $base->whereHas('loan', fn ($l) => $l->where('INIT_BRANCH', Auth::user()->branch_id));
+        }
+        $apply = function ($q, $f) use ($now) {
+            if ($f === 'quoted') { $q->where('STATUS', 'QUOTED')->where('FINAL_PAYMENT_DATE', '>=', $now); }
+            elseif ($f === 'paid') { $q->where('STATUS', 'PAID'); }
+            elseif ($f === 'expired') { $q->where('STATUS', 'QUOTED')->where('FINAL_PAYMENT_DATE', '<', $now); }
+            return $q;
+        };
+        $counts = [];
+        foreach (array_keys($filters) as $f) { $counts[$f] = $apply(clone $base, $f)->count(); }
+        $query = $apply((clone $base)->with('loan'), $filter);
+        if ($search !== '') {
+            $query->where(fn ($q) => $q->where('LOAN_NUMBER', 'like', "%$search%")->orWhere('CHECK_NUMBER', 'like', "%$search%")
+                ->orWhere('EMPLOYEE_NAME', 'like', "%$search%")->orWhere('PAYMENT_REFERENCE_NUMBER', 'like', "%$search%"));
+        }
+        $quotes = $query->orderByDesc('ID')->paginate($perPage)->withQueryString();
+        return view('admin.loan_take_over.payoff_quotes', compact('quotes', 'filters', 'filter', 'search', 'perPage', 'counts'));
     }
     public function getOutgoingPaymentDetails()
     {
         $payment_datails = PAYMENT::orderBy('CREATED_AT', 'asc')->paginate(15);
         return view('admin.loan_take_over.out_going_payment_request', ['payment_datails' => $payment_datails]);   
     }
-    public function getIncomingPaymentRequest()
+    /** Takeover, MCB = FSP1: payments from the bank that took over an MCB loan, to confirm to ESS (SETTLED / UNSETTLED). */
+    public function getIncomingPaymentRequest(Request $request)
     {
-        $payment_datails = INCOMMINGPAYMENT::orderBy('PAYMENT_DATE', 'asc')->paginate(15);
-        return view('admin.loan_take_over.incoming_payment_request', ['payment_datails' => $payment_datails]);   
+        if (!INCOMMINGPAYMENT::ackReady()) {
+            $payment_datails = INCOMMINGPAYMENT::orderBy('PAYMENT_DATE', 'asc')->paginate(15);
+            return view('admin.loan_take_over.incoming_payment_request', ['payment_datails' => $payment_datails]);
+        }
+        $filters = ['pending' => 'To confirm', 'settled' => 'Settled', 'unsettled' => 'Unsettled', 'all' => 'All payments'];
+        $filter = array_key_exists($request->query('filter'), $filters) ? $request->query('filter') : 'pending';
+        $search = trim((string) $request->query('q', ''));
+        $perPage = in_array((int) $request->query('per_page'), [15, 25, 50, 100]) ? (int) $request->query('per_page') : 15;
+
+        $base = INCOMMINGPAYMENT::query();
+        if (Auth::user()->role == 'Branch Operations') {
+            $base->whereHas('loan', fn ($l) => $l->where('INIT_BRANCH', Auth::user()->branch_id));
+        }
+        $apply = function ($q, $f) {
+            if ($f === 'pending') { INCOMMINGPAYMENT::pending($q); }
+            elseif ($f === 'settled') { $q->where('ACK_STATUS', 'SETTLED'); }
+            elseif ($f === 'unsettled') { $q->where('ACK_STATUS', 'UNSETTLED'); }
+            return $q;
+        };
+        $counts = [];
+        foreach (array_keys($filters) as $f) { $counts[$f] = $apply(clone $base, $f)->count(); }
+        $query = $apply((clone $base)->with(['loan', 'quote']), $filter);
+        if ($search !== '') {
+            $query->where(fn ($q) => $q->where('LOAN_NUMBER', 'like', "%$search%")->orWhere('APPLICATION_NUMBER', 'like', "%$search%")
+                ->orWhere('PAYMENT_REFERENCE_NUMBER', 'like', "%$search%"));
+        }
+        $payments = $query->orderByDesc('ID')->paginate($perPage)->withQueryString();
+        $canConfirm = in_array(Auth::user()->role, ['Credit Operation', 'ADMIN']);
+        return view('admin.loan_take_over.incoming_payments', compact('payments', 'filters', 'filter', 'search', 'perPage', 'counts', 'canConfirm'));
+    }
+
+    /** The payment advice PDF (base64 in PAYMENT_ADVICE_ATTACHMENT) sent by the other bank. */
+    public function takeoverPaymentAdvicePdf($id)
+    {
+        $payment = INCOMMINGPAYMENT::find($id);
+        $pdf = $payment ? base64_decode((string) $payment->PAYMENT_ADVICE_ATTACHMENT, true) : false;
+        if (!$pdf || strncmp($pdf, '%PDF', 4) !== 0) {
+            abort(404, 'No PDF payment advice for this payment');
+        }
+        return response($pdf, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="payment-advice-' . $payment->ID . '.pdf"',
+        ]);
+    }
+
+    /** Sends PAYMENT_ACKNOWLEDGMENT_NOTIFICATION through the gateway after the money was checked in core banking. */
+    public function confirmTakeoverPayment(Request $request)
+    {
+        $request->validate([
+            'id'      => ['required', 'integer'],
+            'status'  => ['required', 'in:SETTLED,UNSETTLED'],
+            'remarks' => ['required', 'string', 'min:3', 'max:255'],
+        ]);
+        if (!in_array(Auth::user()->role, ['Credit Operation', 'ADMIN'])) {
+            return back()->with('success', '<b>FAILED</b>, only Credit Operation can confirm takeover payments.');
+        }
+        $body = json_encode([
+            'incomingPaymentId' => (int) $request->id,
+            'status'            => $request->status,
+            'remarks'           => $request->remarks,
+            'decidedBy'         => self::userDisplayName(),
+        ]);
+        try {
+            $response = EsbClient::SendesbRequestbody($body, 'takeover/payment-acknowledgment');
+        } catch (Exception $e) {
+            return back()->with('success', '<b>FAILED</b>, the ESS gateway is not reachable: ' . e($e->getMessage()));
+        }
+        if ($response != null && isset($response->statusCode) && $response->statusCode === 200) {
+            return back()->with('success', '<b>SUCCESS</b>, ' . e($response->statusDescription));
+        }
+        $description = ($response != null && isset($response->statusDescription)) ? $response->statusDescription : 'No response from the ESS gateway';
+        return back()->with('success', '<b>FAILED</b>, ' . e($description));
     }
     public function incomingPaymentprofile($load_id)
     {

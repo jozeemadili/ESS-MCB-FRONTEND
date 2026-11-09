@@ -730,6 +730,19 @@ class loanController extends Controller
      * Bank-initiated restructure proposal (LOAN_RESTRUCTURE_REQUEST_FSP) for a disbursed loan.
      * The Java gateway calculates the new terms from the principal balance and sends the proposal to ESS.
      */
+    /** Restructure calculator page: the officer tries tenures / instalments before sending the proposal to ESS. */
+    public function restructureCalculator($id)
+    {
+        $loan = LOANAPPLICATION::find($id);
+        if ($loan == null) {
+            return redirect()->route('loans-disbursed')->with('success', '<b>FAILED</b>, loan not found.');
+        }
+        if ($loan->TRANSACTION_STATUS !== 'Disbursed') {
+            return redirect('v1/properties/staff/registration/profile/' . $id)->with('success', '<b>FAILED</b>, only a disbursed loan can be restructured.');
+        }
+        return view('admin.restructuring.propose', ['loan' => $loan]);
+    }
+
     public function proposeRestructure(Request $request)
     {
         $request->validate([

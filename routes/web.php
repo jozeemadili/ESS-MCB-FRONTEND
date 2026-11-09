@@ -53,6 +53,7 @@ Route::group(['prefix' => 'v1/','middleware' => ['auth']], function()
     Route::get('loans/restructuring', [loanController::class, 'getRestructuring'])->name('loans-restructuring');
     Route::get('loans/restructured', [loanController::class, 'getRestructuredOriginals'])->name('loans-restructured');
     Route::post('loans/restructuring/propose', [loanController::class, 'proposeRestructure'])->name('loans-restructuring-propose');
+    Route::get('loans/restructuring/propose/{id}', [loanController::class, 'restructureCalculator'])->name('loans-restructuring-calculator');
     Route::post('properties/staff/update/profile', [loanController::class, 'updateLoanStatus'])->name('update-staff');
     Route::post('properties/staff/update/liqiudation', [loanController::class, 'updateLoanLiquidataionStatus'])->name('update-staff-liqiudation');
     Route::post('properties/staff/update/loanAccount', [loanController::class, 'updateLoanAccountDetails'])->name('update-staff-loanAccount');

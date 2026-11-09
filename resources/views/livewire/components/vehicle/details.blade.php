@@ -601,7 +601,7 @@ WITH POPUP -->
             <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#newModalLiqudation"> Initiate Liqudation </button>
             @endif
             <br/><br/>
-            <button class="btn btn-outline-warning w-100" data-bs-toggle="modal" data-bs-target="#newModalProposeRestructure"> Propose Restructure to Employee </button>
+            <a class="btn btn-outline-warning w-100" href="{{ route('loans-restructuring-calculator', ['id' => $vehicle->ID]) }}"><i class="fa fa-calculator"></i> Propose Restructure to Employee </a>
                          
         </div>
         @elseif(Auth::user()->role == 'Credit Admin' )

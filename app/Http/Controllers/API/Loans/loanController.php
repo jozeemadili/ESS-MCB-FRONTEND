@@ -109,10 +109,50 @@ class loanController extends Controller
         $quotes = $query->orderByDesc('ID')->paginate($perPage)->withQueryString();
         return view('admin.loan_take_over.payoff_quotes', compact('quotes', 'filters', 'filter', 'search', 'perPage', 'counts'));
     }
-    public function getOutgoingPaymentDetails()
+    /** Takeover, MCB = FSP2: loans MCB takes over and the payments to the other bank (FSP1). */
+    public function getOutgoingPaymentDetails(Request $request)
     {
-        $payment_datails = PAYMENT::orderBy('CREATED_AT', 'asc')->paginate(15);
-        return view('admin.loan_take_over.out_going_payment_request', ['payment_datails' => $payment_datails]);   
+        if (!PAYMENT::takeoverReady()) {
+            $payment_datails = PAYMENT::orderBy('CREATED_AT', 'asc')->paginate(15);
+            return view('admin.loan_take_over.out_going_payment_request', ['payment_datails' => $payment_datails]);
+        }
+        $filters = ['awaiting' => 'Awaiting payment', 'paid' => 'Paid, ESS not yet told', 'notified' => 'Completed', 'closed' => 'Cancelled / rejected', 'all' => 'All takeovers'];
+        $filter = array_key_exists($request->query('filter'), $filters) ? $request->query('filter') : 'all';
+        $search = trim((string) $request->query('q', ''));
+        $perPage = in_array((int) $request->query('per_page'), [15, 25, 50, 100]) ? (int) $request->query('per_page') : 15;
+
+        $base = PAYMENT::query()->whereNotNull('FSP1_LOAN_NUMBER');
+        if (Auth::user()->role == 'Branch Operations') {
+            $base->whereHas('loan', fn ($l) => $l->where('INIT_BRANCH', Auth::user()->branch_id));
+        }
+        $apply = function ($q, $f) {
+            $closed = fn ($l) => $l->whereIn('LOAN_STATUS', ['Cancelled', 'Rejected'])->orWhere('TRANSACTION_STATUS', 'Rejected');
+            if ($f === 'awaiting') { $q->where('STATUS', 'RECEIVED')->whereDoesntHave('loan', $closed); }
+            elseif ($f === 'closed') { $q->where('STATUS', 'RECEIVED')->whereHas('loan', $closed); }
+            elseif ($f === 'paid') { $q->where('STATUS', 'PAID'); }
+            elseif ($f === 'notified') { $q->where('STATUS', 'NOTIFIED'); }
+            return $q;
+        };
+        $counts = [];
+        foreach (array_keys($filters) as $f) { $counts[$f] = $apply(clone $base, $f)->count(); }
+        $query = $apply((clone $base)->with('loan'), $filter);
+        if ($search !== '') {
+            $query->where(fn ($q) => $q->where('LOAN_ID', 'like', "%$search%")->orWhere('APPLICATION_NUMBER', 'like', "%$search%")
+                ->orWhere('FSP1_LOAN_NUMBER', 'like', "%$search%")->orWhere('FSP1_CODE', 'like', "%$search%"));
+        }
+        $payments = $query->orderByDesc('ID')->paginate($perPage)->withQueryString();
+        return view('admin.loan_take_over.outgoing_payments', compact('payments', 'filters', 'filter', 'search', 'perPage', 'counts'));
+    }
+
+    /** PDF payment advice of MCB's transfer to FSP1. */
+    public function takeoverOutgoingAdvicePdf($id)
+    {
+        $payment = PAYMENT::find($id);
+        $pdf = $payment ? base64_decode((string) $payment->PAYMENT_ADVICE_ATTACHMENT, true) : false;
+        if (!$pdf || strncmp($pdf, '%PDF', 4) !== 0) {
+            abort(404, 'No PDF payment advice for this payment');
+        }
+        return response($pdf, 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="takeover-advice-' . $payment->ID . '.pdf"']);
     }
     /** Takeover, MCB = FSP1: payments from the bank that took over an MCB loan, to confirm to ESS (SETTLED / UNSETTLED). */
     public function getIncomingPaymentRequest(Request $request)
@@ -741,6 +781,28 @@ class loanController extends Controller
             elseif(Auth::user()->role == 'Credit Operation')
             {
                 // $endPoint='http://172.16.3.198:30002/api/v2/hmcis/disbursement/'.$request->id.'';
+                // Takeover (MCB = FSP2): record the transfer to FSP1 first; the gateway sends its advice to ESS
+                $takeoverLoan = LOANAPPLICATION::find($request->id);
+                if ($takeoverLoan && $takeoverLoan->LOAN_TYPE === 'TAKEOVER') {
+                    $request->validate([
+                        'transfer_reference' => ['required', 'string', 'max:60'],
+                        'paid_amount'        => ['required', 'numeric', 'min:1'],
+                        'payment_advice'     => ['required', 'string', 'max:20000'],
+                        'advice_pdf'         => ['required', 'file', 'mimes:pdf', 'max:5120'],
+                    ], [], ['transfer_reference' => 'transfer reference (TISS / core banking)', 'advice_pdf' => 'payment advice PDF']);
+                    $payment = PAYMENT::forLoan($takeoverLoan);
+                    if (!$payment) {
+                        return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', '<b>FAILED</b>, the FSP1 payment details of this takeover were not found.');
+                    }
+                    $payment->CBS_REFERENCE = $request->transfer_reference;
+                    $payment->PAID_AMOUNT = $request->paid_amount;
+                    $payment->PAID_DATE = now('Africa/Dar_es_Salaam')->format('Y-m-d H:i:s');
+                    $payment->PAID_BY = self::userDisplayName();
+                    $payment->PAYMENT_ADVICE = $request->payment_advice;
+                    $payment->PAYMENT_ADVICE_ATTACHMENT = base64_encode(file_get_contents($request->file('advice_pdf')->getRealPath()));
+                    $payment->STATUS = 'PAID';
+                    $payment->save();
+                }
                 $endPoint='disbursement/'.$request->id.'';
                 $response = EsbClient::SendesbRequesturl($endPoint); 
                 $status = $response->status;

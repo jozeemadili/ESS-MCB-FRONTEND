@@ -283,6 +283,50 @@
 </div>
 @endif
 
+{{-- ===== MCB takes over this loan from another bank (MCB = FSP2) ===== --}}
+@if($vehicle->LOAN_TYPE === 'TAKEOVER')
+@php
+    $tkOut = \App\Models\PAYMENT::forLoan($vehicle);
+    $tkNet = (float) $vehicle->TOTAL_AMOUNT - (float) ($tkOut->TAKE_OVER_AMOUNT ?? $vehicle->SETTLEMENT_AMOUNT ?? 0);
+@endphp
+<div class="lp-card" style="border-color:#bfdbfe">
+  <div class="lp-card-h" style="background:#f0f7ff;border-radius:14px 14px 0 0">
+    <h6><i class="fa fa-random" style="color:#0d47a1"></i> Takeover of a loan from another bank (FSP1)</h6>
+    <small>
+      @if(($tkOut->STATUS ?? null) === 'NOTIFIED')<span class="lp-pill soft green">Completed</span>
+      @elseif(($tkOut->STATUS ?? null) === 'PAID')<span class="lp-pill soft blue">FSP1 paid · ESS not yet notified</span>
+      @else<span class="lp-pill soft grey">FSP1 not yet paid</span>@endif
+    </small>
+  </div>
+  <div class="lp-card-b">
+    <div class="row">
+      <div class="col-lg-6">
+        <dl class="m-0">
+          <div class="lp-f"><dt>FSP1 / loan number</dt><dd>{{ $v($tkOut->FSP1_CODE ?? null) }} · <span class="mono">{{ $v($tkOut->FSP1_LOAN_NUMBER ?? $vehicle->ORIGINAL_LOAN_ID) }}</span></dd></div>
+          <div class="lp-f"><dt>Pay to</dt><dd class="mono">{{ $v($tkOut->FSP1_BANK_ACCOUNT ?? null) }} · {{ $v($tkOut->FSP1_SWIFT_CODE ?? null) }}</dd></div>
+          <div class="lp-f"><dt>Account name</dt><dd>{{ $v($tkOut->FSP1_BANK_ACCOUNT_NAME ?? null) }}</dd></div>
+          <div class="lp-f"><dt>FSP1 payment reference</dt><dd class="mono">{{ $v($tkOut->FSP1_PAYMENT_REFERENCE_NUMBER ?? null) }}</dd></div>
+          <div class="lp-f"><dt>Pay by</dt><dd>{{ $dt($tkOut->FSP1_FINAL_PAYMENT_DATE ?? null, true) }}</dd></div>
+        </dl>
+      </div>
+      <div class="col-lg-6">
+        <dl class="m-0">
+          <div class="lp-f"><dt>New loan amount</dt><dd>{{ $money($vehicle->TOTAL_AMOUNT) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Takeover amount (to FSP1)</dt><dd>{{ $money($tkOut->TAKE_OVER_AMOUNT ?? $vehicle->SETTLEMENT_AMOUNT) }} <small>TZS</small></dd></div>
+          <div class="lp-f"><dt><b>Net to employee</b></dt><dd><b>{{ $money($tkNet) }}</b> <small>TZS</small></dd></div>
+          <div class="lp-f"><dt>Transfer to FSP1</dt><dd>
+            @if($tkOut && $tkOut->CBS_REFERENCE)
+              <span class="mono">{{ $tkOut->CBS_REFERENCE }}</span> · {{ $money($tkOut->PAID_AMOUNT) }} · {{ $tkOut->PAID_BY }}
+              @if($tkOut->PAYMENT_ADVICE_ATTACHMENT)<a href="{{ route('takeover-outgoing-advice-pdf', ['id' => $tkOut->ID]) }}" target="_blank">PDF</a>@endif
+            @else — recorded by Credit Operation at approval @endif</dd></div>
+          @if($tkOut && $tkOut->STATUS_DESCRIPTION)<div class="lp-f"><dt>Note</dt><dd style="color:#b45309">{{ $tkOut->STATUS_DESCRIPTION }}</dd></div>@endif
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+@endif
+
 {{-- ===== Approval journey & TAT ===== --}}
 <div class="lp-card">
   <div class="lp-card-h">
@@ -861,7 +905,7 @@ WITH POPUP -->
             </div>
             <div class="modal-body">
                 
-                <form action="{{ Route('update-staff') }}" method="post">
+                <form action="{{ Route('update-staff') }}" method="post" enctype="multipart/form-data">
                     @csrf
 
                     <div class="row">
@@ -873,6 +917,35 @@ WITH POPUP -->
                                 <label class="col-form-label"hidden >id</label>
                                 <input class="form-control" hidden type="text" value="Approved"  required  name="status">
                             </div>
+                        @if($vehicle->LOAN_TYPE === 'TAKEOVER' && Auth::user()->role == 'Credit Operation' && isset($approval_datils) && $approval_datils->status == 'INITIATED')
+                        @php $tkPay = \App\Models\PAYMENT::forLoan($vehicle); @endphp
+                        <div class="col-lg-12">
+                          <div class="alert alert-light-warning" style="font-size:12.5px">
+                            <b>Takeover:</b> pay <b>TZS {{ number_format((float) ($tkPay->TAKE_OVER_AMOUNT ?? 0), 2) }}</b> to
+                            <b>{{ $tkPay->FSP1_BANK_ACCOUNT_NAME ?? 'FSP1' }}</b> ({{ $tkPay->FSP1_BANK_ACCOUNT ?? '' }}, {{ $tkPay->FSP1_SWIFT_CODE ?? '' }}),
+                            reference <b>{{ $tkPay->FSP1_PAYMENT_REFERENCE_NUMBER ?? '' }}</b>, and disburse the rest to the employee in Profits first.
+                            The advice below is sent to ESS (TAKEOVER_DISBURSEMENT_NOTIFICATION).
+                          </div>
+                          <div class="row">
+                            <div class="col-md-7 form-group">
+                              <label class="col-form-label">Transfer reference (TISS / core banking)</label>
+                              <input class="form-control" type="text" name="transfer_reference" maxlength="60" required value="{{ old('transfer_reference') }}">
+                            </div>
+                            <div class="col-md-5 form-group">
+                              <label class="col-form-label">Amount paid to FSP1 (TZS)</label>
+                              <input class="form-control" type="number" step="0.01" min="1" name="paid_amount" required value="{{ old('paid_amount', $tkPay->TAKE_OVER_AMOUNT ?? '') }}">
+                            </div>
+                          </div>
+                          <div class="form-group">
+                            <label class="col-form-label">Payment advice (MT103 / ISO 20022) — draft, edit to match the real transfer</label>
+                            <textarea class="form-control" name="payment_advice" rows="7" required style="font-family:SFMono-Regular,Menlo,Consolas,monospace;font-size:12px">{{ old('payment_advice', $tkPay ? $tkPay->draftMt103($vehicle) : '') }}</textarea>
+                          </div>
+                          <div class="form-group">
+                            <label class="col-form-label">Payment advice PDF (max 5 MB)</label>
+                            <input class="form-control" type="file" name="advice_pdf" accept="application/pdf" required>
+                          </div>
+                        </div>
+                        @endif
                         <div class="col-lg-12">
                         <div class="form-group">
                                     <label class="col-form-label" >Approve Reason</label>

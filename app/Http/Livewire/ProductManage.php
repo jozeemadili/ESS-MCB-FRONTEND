@@ -57,25 +57,33 @@ class ProductManage extends Component
     }
     public function publishProduct()
     {
-        // dd("jose");
-            // $endPoint='http://172.16.3.198:30002/api/v2/hmcis/product/'.$this->products->ID.'';
-            $endPoint='product/'.$this->products->ID.'';
-            $response = EsbClient::SendesbRequesturl($endPoint); 
-            $status = $response->status;
-            $statusDescription = $response->statusDescription;
-            if ($response->statusCode === 200) 
-                {
-                    return to_route('products-condtions',['id' => $this->products->ID])->with('success', ' <b>SUCCESS</b>, '.$statusDescription.' ');
-                }
-            elseif($response->statusCode === 200)
-                {
-                    return to_route('products-condtions',['id' => $this->products->ID])->with('success', ' <b>FAILED</b>, '.$statusDescription.' ');
-      
-                }
-            else
-                {
-                    return to_route('products-condtions',['id' => $this->products->ID])->with('success', ' <b>FAILED</b>, '.$statusDescription.' ');
-                }
+        return $this->sendToEss('product/', 'Publish');
+    }
+
+    /**
+     * Calls the gateway (product/{id} = PRODUCT_DETAIL, decommission/{id} = PRODUCT_DECOMMISSION). The gateway saves the
+     * new status only when ESS replies 8000; on any other reply it answers HTTP 400/500 with ESS's reason in the body.
+     */
+    private function sendToEss(string $path, string $action)
+    {
+        $id = $this->products->ID;
+        try {
+            $response = EsbClient::SendesbRequesturl($path.$id);
+            $ok = $response && (int) ($response->statusCode ?? 0) === 200;
+            $text = $response->statusDescription ?? 'No reply from the gateway';
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $body = $e->hasResponse() ? json_decode((string) $e->getResponse()->getBody()) : null;
+            $ok = false;
+            $text = $body->statusDescription ?? 'The gateway could not be reached';
+            \Log::warning("Product {$id} {$action} failed: ".$e->getMessage());
+        } catch (\Throwable $e) {
+            $ok = false;
+            $text = 'The gateway could not be reached';
+            \Log::warning("Product {$id} {$action} failed: ".$e->getMessage());
+        }
+        return $ok
+            ? to_route('products-condtions', ['id' => $id])->with('success', '<b>SUCCESS</b>, '.e($text))
+            : to_route('products-condtions', ['id' => $id])->with('error', '<b>'.e($action).' FAILED</b>, '.e($text));
     }
      // Update product method
      public function updateProduct()
@@ -107,18 +115,6 @@ class ProductManage extends Component
      }
     public function decamisionProduct()
     {
-        // http://172.16.3.198:30002/api/v2/hmcis/
-        $endPoint='decommission/'.$this->products->ID.'';
-        $response = EsbClient::SendesbRequesturl($endPoint);
-        $status = $response->status;
-        $statusDescription = $response->statusDescription;
-        if ($response->statusCode === 200) 
-            {
-                return to_route('products-condtions',['id' => $this->products->ID])->with('success', ' <b>SUCCESS</b>, '.$statusDescription.' ');
-            }
-        else
-            {
-                return to_route('products-condtions',['id' => $this->products->ID])->with('success', ' <b>FAILED</b>, '.$statusDescription.' ');
-            }
+        return $this->sendToEss('decommission/', 'Decommission');
     }
 }

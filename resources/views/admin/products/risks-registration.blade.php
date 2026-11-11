@@ -22,6 +22,10 @@
     <div class="alert alert-danger outline alert-dismissible fade show" role="alert"><i class="icon-info-alt txt-danger"></i> {{ $error }}
       <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button></div>
   @endforeach
+  @if($message = Session::get('error'))
+    <div class="alert alert-danger outline alert-dismissible fade show" role="alert"><i class="icon-info-alt txt-danger"></i> {!! $message !!}
+      <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button></div>
+  @endif
   @if($message = Session::get('success'))
     <div class="alert alert-success outline alert-dismissible fade show" role="alert"><i class="icofont icofont-check-circled"></i> {!! $message !!}
       <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button></div>

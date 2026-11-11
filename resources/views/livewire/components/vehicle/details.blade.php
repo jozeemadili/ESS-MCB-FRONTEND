@@ -47,11 +47,21 @@
 
     $appliedAt = preg_match('/^ESS(\d{13})$/', (string) $vehicle->APPLICATION_NUMBER, $m) ? Carbon::createFromTimestampMs((int) $m[1])->setTimezone($TZ) : null;
     $receivedAt = $local($vehicle->APPLICATION_DATE);
+    if ($appliedAt && $receivedAt && $appliedAt->gt($receivedAt)) { $appliedAt = null; } // number issued after MCB received it
     $employerAt = $local($vehicle->APPROVED_DATE);
     $disbursedAt = $local($vehicle->LOAN_DISBURSED_DATE);
     $coAt = $local($vehicle->CO_DECISION_DATE); // set by the gateway when ESS accepts the CO decision
 
     $rejected = $tx === 'rejected' || $ls === 'rejected';
+    // Who rejected: ESS rejections (employer final approval, or employee declining a restructure) set TRANSACTION_STATUS
+    // to Rejected; a Credit Officer rejection only sets LOAN_STATUS.
+    $essRejected = $tx === 'rejected';
+    $coRejected = $ls === 'rejected' && !$essRejected;
+    $reasonRaw = trim((string) $vehicle->REASON);
+    $employeeDeclined = $essRejected && ($vehicle->APPROVED_BY === 'Employee (ESS)'
+        || ($vehicle->APPROVED_BY !== 'Employer (ESS)' && !$vehicle->APPROVAL_DESCRIPTION && $reasonRaw !== '' && !in_array(strtoupper($reasonRaw), ['REJECTED', 'APPROVED', 'OK'])));
+    $essReason = trim((string) $vehicle->APPROVAL_DESCRIPTION)
+        ?: (!in_array(strtoupper($reasonRaw), ['', 'REJECTED', 'APPROVED', 'OK']) ? $reasonRaw : null);
     $cancelled = $ls === 'cancelled' || $tx === 'cancelled';
     $coDone = !in_array($ls, ['pending', '']) || !in_array($tx, ['pending', '']);
     $employerDone = in_array($tx, ['approved', 'disbursed', 'posted to cbs', 'restructured']);
@@ -62,13 +72,15 @@
     $steps = [
         ['key' => 'applied',  'title' => 'Applied on ESS',            'who' => 'Employee (ESS Utumishi)', 'at' => $appliedAt,  'state' => 'done', 'note' => $appliedAt ? null : 'Date not provided by ESS'],
         ['key' => 'received', 'title' => 'Received at MCB',           'who' => 'ESS gateway',              'at' => $receivedAt, 'state' => 'done'],
-        ['key' => 'co',       'title' => 'Credit Officer review'.($coDone ? (($ls === 'rejected' && !$employerDone) ? ' – rejected' : ' – accepted') : ''),
+        ['key' => 'co',       'title' => 'Credit Officer review'.($coDone ? ($coRejected ? ' – rejected' : ' – accepted') : ''),
             'who' => $vehicle->CO_DECISION_BY ?: 'Credit Officer', 'at' => $coAt,
-            'state' => $coDone ? (($ls === 'rejected' && !$employerDone) ? 'rejected' : 'done') : ($cancelled || $rejected ? 'rejected' : 'current'),
+            'state' => $coDone ? ($coRejected ? 'rejected' : 'done') : ($cancelled || $rejected ? 'rejected' : 'current'),
             'note' => ($coDone && !$coAt) ? 'Decision time not recorded (decided before the portal started recording it)' : null],
-        ['key' => 'employer', 'title' => 'Employer approval (ESS)',   'who' => $v($vehicle->APPROVED_BY) !== '—' ? $vehicle->APPROVED_BY : 'Employer / HR via ESS', 'at' => $employerAt,
-            'state' => $employerDone ? 'done' : (($rejected || $cancelled) && $coDone ? 'rejected' : ($coDone ? 'current' : 'waiting')),
-            'note' => ($employerDone && !$employerAt) ? 'Approval time not recorded' : null],
+        ['key' => 'employer', 'title' => $employeeDeclined ? 'Employee declined the restructure (ESS)' : 'Employer approval (ESS)'.($essRejected ? ' – rejected' : ''),
+            'who' => $employeeDeclined ? 'Employee via ESS' : 'Employer / HR via ESS', 'at' => $employerAt,
+            'state' => $employerDone ? 'done' : ($essRejected || ($cancelled && $coDone) ? 'rejected' : ($coDone && !$coRejected ? 'current' : 'waiting')),
+            'note' => $essRejected ? 'Reason: '.($essReason ?: 'not saved (rejected before the portal recorded ESS reasons)').(!$employerAt ? ' · Time not recorded' : '')
+                : (($employerDone && !$employerAt) ? 'Approval time not recorded' : null)],
         ['key' => 'ca',       'title' => $isRestructure ? 'Credit Admin – restructure initiation' : 'Credit Admin – disbursement initiation',
             'who' => $who($caStage->initiator_id ?? null) ?? ($vehicle->LOAN_REQUEST_INITIATOR ?: 'Credit Admin'), 'at' => $utc($caStage->initiator_date ?? null),
             'state' => $caStage ? ($caStage->status === 'INITIATED_REJECTION' ? 'rejected' : 'done') : ($employerDone && !$copDone ? 'current' : ($copDone ? 'done' : 'waiting')),
@@ -206,8 +218,12 @@
     </div>
     <div class="lp-tags">
       <span class="lp-chip">{{ ucwords(strtolower(str_replace('_', ' ', $vehicle->LOAN_TYPE ?: 'NEW_LOAN'))) }}</span>
+      @if($essRejected || $coRejected)
+        <span class="lp-pill red" title="Transaction status {{ $vehicle->TRANSACTION_STATUS }} · Loan status {{ $vehicle->LOAN_STATUS }}">{{ $coRejected ? 'Rejected by Credit Officer' : ($employeeDeclined ? 'Declined by employee (ESS)' : 'Rejected by employer (ESS)') }}</span>
+      @else
       <span class="lp-pill {{ $pill($vehicle->TRANSACTION_STATUS) }}" title="Transaction status">{{ $v($vehicle->TRANSACTION_STATUS) }}</span>
       <span class="lp-pill {{ $pill($vehicle->LOAN_STATUS) }}" title="Loan status">Loan: {{ $v($vehicle->LOAN_STATUS) }}</span>
+      @endif
     </div>
   </div>
   <div class="lp-figs">
@@ -577,7 +593,7 @@
       <div class="lp-card-b">
         <dl class="m-0">
           <div class="lp-f"><dt>Transaction Status</dt><dd><span class="lp-pill soft {{ $pill($vehicle->TRANSACTION_STATUS) }}">{{ $v($vehicle->TRANSACTION_STATUS) }}</span></dd></div>
-          <div class="lp-f"><dt>Approval Description</dt><dd>{{ $v($vehicle->APPROVAL_DESCRIPTION) }}</dd></div>
+          <div class="lp-f"><dt>{{ $employeeDeclined ? 'Employee (ESS) reason' : 'Employer (ESS) reason' }}</dt><dd>{{ $v($essReason) }}</dd></div>
           <div class="lp-f"><dt>Credit Officer Decision</dt><dd>{{ $v($vehicle->CO_DECISION_BY) }}{{ $vehicle->CO_DECISION_DATE ? ' · '.$dt($vehicle->CO_DECISION_DATE, true) : '' }}</dd></div>
           <div class="lp-f"><dt>Approved By</dt><dd>{{ $v($vehicle->APPROVED_BY) }}</dd></div>
           <div class="lp-f"><dt>Approved Date</dt><dd>{{ $dt($vehicle->APPROVED_DATE, true) }}</dd></div>

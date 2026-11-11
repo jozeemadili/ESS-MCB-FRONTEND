@@ -25,6 +25,11 @@
     .br-pick label{font-size:12.5px;display:flex;gap:6px;align-items:center;margin:0;padding:3px 0;}
     .br-pick label.done{color:var(--mut);}
     .tk-pager nav{margin:0;}
+    .br-issues{margin:14px 18px 4px;background:#fff8e6;border:1px solid #f6d7a7;color:#7c4a03;border-radius:12px;padding:12px 16px;font-size:13px;}
+    .br-issue{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #f3e2bf;}
+    .br-issue:first-of-type{margin-top:8px;}
+    .br-issue .btn{border-radius:8px;font-weight:600;white-space:nowrap;}
+    .br-edit{display:flex;gap:6px;flex-wrap:wrap;align-items:center;} .br-edit .form-select{min-width:240px;border-radius:8px;}
     @media (max-width:767px){.br-tools{grid-template-columns:1fr;}}
   </style>
 
@@ -65,16 +70,37 @@
     </div>
 
     @if($issues['duplicates'] || $issues['unknown'])
-      <div class="alert alert-warning m-3" style="border-radius:12px;font-size:13px">
+      <div class="br-issues">
         <b><i class="fa fa-exclamation-triangle"></i> Check these active mappings before publishing</b>
-        <ul class="mb-0 mt-1">
-          @foreach($issues['duplicates'] as $d)
-            <li><b>{{ strtoupper($d->BRANCH_NAME) }}</b> {{ $d->BRANCH_CODE }} is mapped to {{ CC::getDistrictName($d->DISTRICT_CODE) }} ({{ $d->DISTRICT_CODE }}) more than once. ESS gets it once; deactivate the extra copy (marked <i>Duplicate</i>).</li>
-          @endforeach
-          @foreach($issues['unknown'] as $d)
-            <li><b>{{ strtoupper($d->BRANCH_NAME) }}</b> {{ $d->BRANCH_CODE }} uses district code <b>{{ $d->DISTRICT_CODE ?: '(blank)' }}</b>, which is not in the ESS district list. Deactivate it and map the correct district.</li>
-          @endforeach
-        </ul>
+        @foreach($issues['duplicates'] as $d)
+          <div class="br-issue">
+            <span><b>{{ strtoupper($d->BRANCH_NAME) }}</b> {{ $d->BRANCH_CODE }} is mapped to <b>{{ CC::getDistrictName($d->DISTRICT_CODE) }}</b> ({{ $d->DISTRICT_CODE }}) more than once. ESS gets it once.</span>
+            @if($canManage)
+              <button class="btn btn-sm btn-outline-danger" type="button" wire:click="deleteDuplicate({{ $d->ID }})" wire:loading.attr="disabled"
+                onclick="confirm('Delete the extra {{ addslashes(strtoupper($d->BRANCH_NAME)) }} – {{ addslashes(CC::getDistrictName($d->DISTRICT_CODE)) }} mapping? The first one stays.') || event.stopImmediatePropagation()"><i class="fa fa-trash"></i> Delete duplicate</button>
+            @endif
+          </div>
+        @endforeach
+        @foreach($issues['unknown'] as $d)
+          <div class="br-issue">
+            <span><b>{{ strtoupper($d->BRANCH_NAME) }}</b> {{ $d->BRANCH_CODE }} uses district code <b>{{ $d->DISTRICT_CODE ?: '(blank)' }}</b>, which is not in the ESS district list.</span>
+            @if($canManage)
+              @if($editId === (int) $d->ID)
+                <span class="br-edit">
+                  <select class="form-select form-select-sm" wire:model.defer="editDistrict">
+                    <option value="">Choose the correct district</option>
+                    @foreach($districts as $code => $name)<option value="{{ $code }}">{{ $name }} ({{ $code }})</option>@endforeach
+                  </select>
+                  <button class="btn btn-sm btn-primary" type="button" wire:click="saveDistrict" wire:loading.attr="disabled">Save</button>
+                  <button class="btn btn-sm btn-light" type="button" wire:click="cancelEdit">Cancel</button>
+                  @error('editDistrict')<small class="text-danger d-block w-100">{{ $message }}</small>@enderror
+                </span>
+              @else
+                <button class="btn btn-sm btn-outline-primary" type="button" wire:click="startEdit({{ $d->ID }})"><i class="fa fa-pencil"></i> Edit district</button>
+              @endif
+            @endif
+          </div>
+        @endforeach
       </div>
     @endif
 
@@ -100,6 +126,12 @@
               @if(isset($issues['unknown'][$r->ID]))<span class="tk-pill wait" title="District code not in the ESS district list">Unknown district</span>@endif</td>
             @if($canManage)
             <td><div class="br-actions">
+              @if(isset($issues['duplicates'][$r->ID]))
+                <button class="btn btn-outline-danger" type="button" wire:click="deleteDuplicate({{ $r->ID }})" wire:loading.attr="disabled" onclick="confirm('Delete this extra mapping? The first one stays.') || event.stopImmediatePropagation()"><i class="fa fa-trash"></i> Delete</button>
+              @endif
+              @if(isset($issues['unknown'][$r->ID]))
+                <button class="btn btn-outline-primary" type="button" wire:click="startEdit({{ $r->ID }})"><i class="fa fa-pencil"></i> Edit district</button>
+              @endif
               @if($active)
                 <button class="btn btn-outline-danger" type="button" wire:click="setStatus({{ $r->ID }}, 'Inactive')" wire:loading.attr="disabled" onclick="confirm('Stop {{ addslashes(strtoupper($r->BRANCH_NAME)) }} from serving {{ addslashes(CC::getDistrictName($r->DISTRICT_CODE)) }}?') || event.stopImmediatePropagation()"><i class="fa fa-ban"></i> Deactivate</button>
               @else

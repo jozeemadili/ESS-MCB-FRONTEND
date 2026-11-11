@@ -28,6 +28,10 @@ class BranchSubmit extends Component
     public $newBranch = '';
     public $newDistricts = [];
 
+    // Fix an unknown district code
+    public $editId = null;
+    public $editDistrict = '';
+
     public function updating($name)
     {
         if (in_array($name, ['search', 'branch', 'status'])) {
@@ -131,6 +135,63 @@ class BranchSubmit extends Component
         return $ok
             ? to_route('branches-list')->with('success', '<b>Published to ESS</b>. '.e($desc))
             : to_route('branches-list')->with('error', '<b>Publishing to ESS failed</b>. '.e($desc));
+    }
+
+    /** Deletes an extra copy of an active branch/district mapping (the first copy stays). */
+    public function deleteDuplicate($id)
+    {
+        abort_unless($this->canManage(), 403);
+        $dup = $this->issues(CustomersController::districts())['duplicates'][$id] ?? null;
+        if (!$dup) {
+            session()->flash('error', 'That mapping is no longer a duplicate, so it was not deleted.');
+            return;
+        }
+        BRANCH::where('ID', $dup->ID)->delete();
+        \Log::info('Branch mapping '.$dup->ID.' deleted as duplicate of '.$dup->BRANCH_CODE.'/'.$dup->DISTRICT_CODE.' by user '.auth()->id());
+        session()->flash('success', 'Duplicate removed: <b>'.e(strtoupper($dup->BRANCH_NAME)).'</b> – '.e(CustomersController::getDistrictName($dup->DISTRICT_CODE))
+            .' is now mapped once. Publish to ESS to send the change.');
+    }
+
+    public function startEdit($id)
+    {
+        abort_unless($this->canManage(), 403);
+        $this->editId = (int) $id;
+        $this->editDistrict = '';
+        $this->resetErrorBag('editDistrict');
+    }
+
+    public function cancelEdit()
+    {
+        $this->reset(['editId', 'editDistrict']);
+        $this->resetErrorBag('editDistrict');
+    }
+
+    /** Replaces an unknown district code with one from the ESS district list. */
+    public function saveDistrict()
+    {
+        abort_unless($this->canManage(), 403);
+        $this->resetErrorBag('editDistrict');
+        $districts = CustomersController::districts();
+        $row = BRANCH::where('ID', $this->editId)->first();
+        if (!$row) {
+            $this->cancelEdit();
+            return;
+        }
+        if (!isset($districts[$this->editDistrict])) {
+            $this->addError('editDistrict', 'Choose a district from the list.');
+            return;
+        }
+        if (BRANCH::where('BRANCH_CODE', $row->BRANCH_CODE)->where('DISTRICT_CODE', $this->editDistrict)->where('STATUS', 'Active')
+                ->where('ID', '<>', $row->ID)->exists()) {
+            $this->addError('editDistrict', strtoupper($row->BRANCH_NAME).' already serves '.$districts[$this->editDistrict].'. Delete or deactivate this row instead.');
+            return;
+        }
+        $old = $row->DISTRICT_CODE;
+        BRANCH::where('ID', $row->ID)->update(['DISTRICT_CODE' => $this->editDistrict]);
+        \Log::info('Branch mapping '.$row->ID.' district changed '.$old.' -> '.$this->editDistrict.' by user '.auth()->id());
+        session()->flash('success', '<b>'.e(strtoupper($row->BRANCH_NAME)).'</b>: district <b>'.e($old ?: '(blank)').'</b> changed to <b>'
+            .e($districts[$this->editDistrict]).'</b> ('.e($this->editDistrict).'). Publish to ESS to send the change.');
+        $this->cancelEdit();
     }
 
     /** Active rows the gateway will not send as they are: unknown district codes, and extra copies of a branch/district. */

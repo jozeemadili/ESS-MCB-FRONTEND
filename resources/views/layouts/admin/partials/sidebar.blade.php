@@ -84,10 +84,14 @@
                         </ul>
                     </li>
                     @endif
+                    @php $reportsOpen = request()->is('v1/loans/reports/*') || request()->routeIs('loans-applications'); @endphp
                     <li class="dropdown">
-                        <a class="nav-link menu-title {{(request()->is('v1/intermediary/*')) ? 'active' : ''}}" href="javascript:void(0)"><i data-feather="link"></i><span>Reports</span></a>
-                        <ul class="nav-submenu menu-content" style="display: {{ (request()->is('v1/intermediary/*')) ? 'block' : '' }};">
+                        <a class="nav-link menu-title {{ $reportsOpen ? 'active' : '' }}" href="javascript:void(0)"><i data-feather="bar-chart-2"></i><span>Reports</span></a>
+                        <ul class="nav-submenu menu-content" style="display: {{ $reportsOpen ? 'block' : '' }};">
                             <li><a href="{{route('loans-applications')}}" class="{{routeActive('loans-applications')}}"> - Customise Report</a></li>
+                            <li><a href="{{route('loans-report', 'restructuring')}}" class="{{ request()->is('v1/loans/reports/restructuring') ? 'active' : '' }}"> - Restructuring Report</a></li>
+                            <li><a href="{{route('loans-report', 'takeover')}}" class="{{ request()->is('v1/loans/reports/takeover') ? 'active' : '' }}"> - Takeover Report</a></li>
+                            <li><a href="{{route('loans-report', 'topup')}}" class="{{ request()->is('v1/loans/reports/topup') ? 'active' : '' }}"> - Top-up Report</a></li>
                         </ul>
                     </li>
                      @endif

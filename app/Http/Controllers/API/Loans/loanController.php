@@ -28,19 +28,46 @@ use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 class loanController extends Controller
 {
-    public function get()
+    /** Reports > Customise Report (All Loans). Filters come in the query string so paging and Excel keep them. */
+    public function get(Request $request)
     {
-        session()->forget(['start_date', 'end_date']);
-        $statuses = LOANAPPLICATION::select('LOAN_STATUS')->distinct()->pluck('LOAN_STATUS');
+        return $this->report($request, 'all');
+    }
 
-        if(Auth::user()->role == 'Branch Operations')
-        {
-            $loans_datails = LOANAPPLICATION::where('INIT_BRANCH', Auth::user()->branch_id)->orderBy('ID', 'desc')->paginate(15);
-        }else{
-            $loans_datails= LOANAPPLICATION::orderBy('id','desc')->paginate(15);
-        }
-        // .blade.php
-        return view('admin.intermediaries.custom_report', ['loans' => $loans_datails, 'statuses'=>$statuses]);   
+    /**
+     * Loan reports: all (Customise Report), restructuring, takeover, topup.
+     * Search options and columns are those of the original report; Excel exports exactly what is filtered on screen.
+     */
+    public function report(Request $request, $type = 'all')
+    {
+        abort_unless(\App\Support\LoanReport::exists($type), 404);
+        session()->forget(['start_date', 'end_date']);
+
+        $filters = \App\Support\LoanReport::filtersFrom($request);
+        // The Excel buttons of the other loan pages use the last search
+        session(['search_filters' => $filters]);
+
+        $query = \App\Support\LoanReport::query($type, $filters);
+        $perPage = in_array((int) $request->input('per_page'), [15, 25, 50, 100]) ? (int) $request->input('per_page') : 15;
+        $loans = $query->paginate($perPage)->withQueryString();
+
+        return view('admin.reports.loans', [
+            'type'     => $type,
+            'loans'    => $loans,
+            'statuses' => \App\Support\LoanReport::statuses($type),
+            'filters'  => $filters,
+            'searchBy' => \App\Support\LoanReport::searchBy($filters),
+            'summary'  => \App\Support\LoanReport::summary($query),
+            'payments' => $type === 'takeover' ? \App\Support\LoanReport::takeoverPayments($loans->items()) : [],
+            'perPage'  => $perPage,
+        ]);
+    }
+
+    public function exportReport(Request $request, $type)
+    {
+        abort_unless(\App\Support\LoanReport::exists($type), 404);
+        return Excel::download(new \App\Exports\LoanReportExport($type, \App\Support\LoanReport::filtersFrom($request)),
+            \App\Support\LoanReport::fileName($type));
     }
     public function getCancelled()
     { 
@@ -374,76 +401,15 @@ class loanController extends Controller
     
         return view('admin.intermediaries.customer-details', ['loans' => $loans_details2]);   
     }
+    /** Search form posts here (old links and bookmarks); the report itself is a GET so paging keeps the filters. */
     public function search(Request $request)
     {
-        $loans_details = LOANAPPLICATION::query();
-    
-        // Get filters from request
-        $start_date = $request->start_date;
-        $end_date   = $request->end_date;
-        $status     = $request->status;
-        $phone      = $request->phone_number;
-        $loan_id    = $request->loan_id;
-        $id_number  = $request->id_number;
-        $cname      = $request->cname;
-    
-        // Save filters in session for exporting
-        session([
-            'search_filters' => [
-                'start_date' => $start_date,
-                'end_date'   => $end_date,
-                'status'     => $status,
-                'phone'      => $phone,
-                'loan_id'    => $loan_id,
-                'id_number'  => $id_number,
-                'cname'      => $cname,
-            ]
-        ]);
-    
-        // Apply filters
-        if (!empty($status)) {
-            $loans_details->where('LOAN_STATUS', $status);
-        }
-    
-        if (!empty($phone)) {
-            $loans_details->where('MSISDN', $phone);
-        }
-    
-        if (!empty($loan_id)) {
-            $loans_details->where('LOAN_ID', $loan_id);
-        }
-    
-        if (!empty($id_number)) {
-            $loans_details->where('APPLICATION_NUMBER', $id_number);
-        }
-    
-        if (!empty($cname)) {
-            $names = explode(' ', $cname);
-            $loans_details->where(function ($query) use ($names) {
-                foreach ($names as $name) {
-                    $query->orWhere('FIRST_NAME', 'like', "%$name%")
-                          ->orWhere('MIDDLE_NAME', 'like', "%$name%")
-                          ->orWhere('LAST_NAME', 'like', "%$name%");
-                }
-            });
-        }
-    
-        // Date range
-        if (!empty($start_date) && !empty($end_date)) {
-            $end_date_adj = date('Y-m-d', strtotime($end_date)) . ' 23:59:59';
-            $loans_details->whereBetween('APPLICATION_DATE', [$start_date, $end_date_adj]);
-        }
-    
-        // Get distinct statuses for dropdown
-        $statuses = LOANAPPLICATION::select('LOAN_STATUS')->distinct()->pluck('LOAN_STATUS');
-    
-        return view('admin.intermediaries.custom_report', [
-            'loans' => $loans_details->paginate(10),
-            'statuses' => $statuses
-        ]);
+        $type = \App\Support\LoanReport::exists((string) $request->input('report')) ? $request->input('report') : 'all';
+        $query = \App\Support\LoanReport::queryString(\App\Support\LoanReport::filtersFrom($request));
+        return $type === 'all'
+            ? redirect()->route('loans-applications', $query)
+            : redirect()->route('loans-report', ['type' => $type] + $query);
     }
-    
-    
 
     public function searchOld(Request $request)
     {
@@ -601,7 +567,9 @@ class loanController extends Controller
     
     public function export() 
     {
-        return Excel::download(new QuatationExport, 'All-Loans.xlsx');
+        // With filters in the link (Customise Report) they are used; otherwise the last search, as before
+        $filters = \App\Support\LoanReport::filtersFrom(request());
+        return Excel::download(new QuatationExport(\App\Support\LoanReport::hasFilters($filters) ? $filters : null), 'All-Loans.xlsx');
     }
     public function exportDisbursed() 
     {

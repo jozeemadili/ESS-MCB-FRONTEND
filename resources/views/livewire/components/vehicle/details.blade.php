@@ -82,6 +82,22 @@
             'state' => in_array($tx, ['disbursed', 'posted to cbs', 'restructured']) || $disbursedAt ? 'done' : ($copDone ? 'current' : 'waiting'),
             'note' => (in_array($tx, ['disbursed', 'posted to cbs']) && !$disbursedAt) ? 'Time not recorded' : null],
     ];
+    // Takeover (MCB = FSP2): after disbursement, staff upload the proof of payment to FSP1 and the gateway notifies ESS
+    $isTakeover = $vehicle->LOAN_TYPE === 'TAKEOVER';
+    $tkProof = $isTakeover ? \App\Models\PAYMENT::forLoan($vehicle) : null;
+    if ($isTakeover) {
+        $disbDone = in_array($tx, ['disbursed', 'posted to cbs']) || $disbursedAt;
+        $proofDone = $tkProof && $tkProof->CBS_REFERENCE && $tkProof->PAYMENT_ADVICE_ATTACHMENT;
+        $essDone = ($tkProof->STATUS ?? null) === 'NOTIFIED' || $tx === 'disbursed';
+        $steps[] = ['key' => 'proof', 'title' => 'Proof of payment to FSP1 uploaded',
+            'who' => ($proofDone && $tkProof->PAID_BY) ? $tkProof->PAID_BY : 'Credit Operation / Credit Admin', 'at' => $proofDone ? $local($tkProof->PAID_DATE) : null,
+            'state' => $proofDone ? 'done' : ($disbDone ? 'current' : 'waiting'),
+            'note' => $proofDone ? 'Reference '.$tkProof->CBS_REFERENCE.' · TZS '.number_format((float) $tkProof->PAID_AMOUNT, 2) : null];
+        $steps[] = ['key' => 'ess', 'title' => 'ESS notified (TAKEOVER_DISBURSEMENT_NOTIFICATION)', 'who' => 'ESS gateway',
+            'at' => $essDone ? $local($tkProof->NOTIFIED_DATE ?? null) : null,
+            'state' => $essDone ? 'done' : ($proofDone ? 'current' : 'waiting'),
+            'note' => (!$essDone && $proofDone && $tkProof->STATUS_DESCRIPTION) ? $tkProof->STATUS_DESCRIPTION.' · retried automatically' : null];
+    }
     // Once rejected/cancelled, the remaining steps did not happen
     $stopped = false;
     foreach ($steps as $i => $s) {
@@ -103,7 +119,7 @@
         if ($s['at']) { $lastAt = $s['at']; $lastTitle = $s['title']; }
     }
     $endAt = collect($steps)->filter(fn ($s) => $s['at'] && $s['state'] !== 'skipped')->last()['at'] ?? null;
-    $finished = in_array($tx, ['disbursed', 'posted to cbs', 'restructured']) || $rejected || $cancelled;
+    $finished = ($isTakeover ? $tx === 'disbursed' : in_array($tx, ['disbursed', 'posted to cbs', 'restructured'])) || $rejected || $cancelled;
     $totalMins = $receivedAt ? $receivedAt->diffInMinutes($finished && $endAt ? $endAt : $now) : null;
     if ($finished && (!$endAt || ($receivedAt && $endAt->eq($receivedAt)))) { $totalMins = null; } // end time not recorded
 
@@ -134,8 +150,8 @@
   .lp-fig b small{font-size:11px;font-weight:600;color:#cfe0ff;margin-right:3px;}
   .lp-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:20px;font-size:11.5px;font-weight:700;background:#fff;}
   .lp-pill:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;}
-  .lp-pill.blue{color:#0d47a1;} .lp-pill.green{color:#137a43;} .lp-pill.grey{color:#55606e;} .lp-pill.red{color:#c62828;} .lp-pill.purple{color:#6d28d9;}
-  .lp-pill.soft.blue{background:#e3f2fd;} .lp-pill.soft.green{background:#e6f6ee;} .lp-pill.soft.grey{background:#f1f3f6;} .lp-pill.soft.red{background:#fdecec;} .lp-pill.soft.purple{background:#f1e9fe;}
+  .lp-pill.blue{color:#0d47a1;} .lp-pill.green{color:#137a43;} .lp-pill.grey{color:#55606e;} .lp-pill.red{color:#c62828;} .lp-pill.purple{color:#6d28d9;} .lp-pill.orange{color:#b45309;}
+  .lp-pill.soft.blue{background:#e3f2fd;} .lp-pill.soft.green{background:#e6f6ee;} .lp-pill.soft.grey{background:#f1f3f6;} .lp-pill.soft.red{background:#fdecec;} .lp-pill.soft.purple{background:#f1e9fe;} .lp-pill.soft.orange{background:#fff4e5;}
   .lp-chip{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:700;background:var(--o);color:#fff;}
   .lp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0 28px;}
   .lp-grid.three{grid-template-columns:repeat(3,1fr);}
@@ -293,9 +309,10 @@
   <div class="lp-card-h" style="background:#f0f7ff;border-radius:14px 14px 0 0">
     <h6><i class="fa fa-random" style="color:#0d47a1"></i> Takeover of a loan from another bank (FSP1)</h6>
     <small>
-      @if(($tkOut->STATUS ?? null) === 'NOTIFIED')<span class="lp-pill soft green">Completed</span>
-      @elseif(($tkOut->STATUS ?? null) === 'PAID')<span class="lp-pill soft blue">FSP1 paid · ESS not yet notified</span>
-      @else<span class="lp-pill soft grey">FSP1 not yet paid</span>@endif
+      @if(($tkOut->STATUS ?? null) === 'NOTIFIED' || $vehicle->TRANSACTION_STATUS === 'Disbursed')<span class="lp-pill soft green">Completed · ESS notified</span>
+      @elseif($vehicle->TRANSACTION_STATUS === 'Posted to CBS' && $tkOut && $tkOut->CBS_REFERENCE)<span class="lp-pill soft blue">Proof uploaded · ESS not yet notified</span>
+      @elseif($vehicle->TRANSACTION_STATUS === 'Posted to CBS')<span class="lp-pill soft orange">Disbursed · upload proof of payment</span>
+      @else<span class="lp-pill soft grey">Awaiting disbursement</span>@endif
     </small>
   </div>
   <div class="lp-card-b">
@@ -314,13 +331,13 @@
           <div class="lp-f"><dt>New loan amount</dt><dd>{{ $money($vehicle->TOTAL_AMOUNT) }} <small>TZS</small></dd></div>
           <div class="lp-f"><dt>Takeover amount (to FSP1)</dt><dd>{{ $money($tkOut->TAKE_OVER_AMOUNT ?? $vehicle->SETTLEMENT_AMOUNT) }} <small>TZS</small></dd></div>
           <div class="lp-f"><dt><b>Net to employee</b></dt><dd><b>{{ $money($tkNet) }}</b> <small>TZS</small></dd></div>
-          <div class="lp-f"><dt>Transfer to FSP1</dt><dd>
+          <div class="lp-f"><dt>Proof of payment to FSP1</dt><dd>
             @if($tkOut && $tkOut->CBS_REFERENCE)
               <span class="mono">{{ $tkOut->CBS_REFERENCE }}</span> · {{ $money($tkOut->PAID_AMOUNT) }} · {{ $tkOut->PAID_BY }}
               @if($tkOut->PAYMENT_ADVICE_ATTACHMENT)<a href="{{ route('takeover-outgoing-advice-pdf', ['id' => $tkOut->ID]) }}" target="_blank">PDF</a>@endif
-            @else — not recorded yet @endif
-            @if($vehicle->TRANSACTION_STATUS === 'Approved' && ($tkOut->STATUS ?? null) !== 'NOTIFIED')
-              <a class="btn btn-sm btn-outline-primary" style="border-radius:8px;margin-left:6px" href="{{ route('outgoing-payment-request', ['filter' => 'all', 'q' => $vehicle->APPLICATION_NUMBER]) }}"><i class="fa fa-upload"></i> {{ ($tkOut && $tkOut->CBS_REFERENCE) ? 'Update transfer' : 'Record transfer' }}</a>
+            @else — not uploaded yet{{ $vehicle->TRANSACTION_STATUS === 'Posted to CBS' ? '' : ' (after Credit Operation disburses)' }} @endif
+            @if($vehicle->TRANSACTION_STATUS === 'Posted to CBS' && ($tkOut->STATUS ?? null) !== 'NOTIFIED')
+              <a class="btn btn-sm {{ ($tkOut && $tkOut->CBS_REFERENCE) ? 'btn-outline-primary' : 'btn-primary' }}" style="border-radius:8px;margin-left:6px" href="{{ route('outgoing-payment-request', ['filter' => 'all', 'q' => $vehicle->APPLICATION_NUMBER]) }}"><i class="fa fa-upload"></i> {{ ($tkOut && $tkOut->CBS_REFERENCE) ? 'Update proof of payment' : 'Upload proof of payment' }}</a>
             @endif</dd></div>
           @if($tkOut && $tkOut->STATUS_DESCRIPTION)<div class="lp-f"><dt>Note</dt><dd style="color:#b45309">{{ $tkOut->STATUS_DESCRIPTION }}</dd></div>@endif
         </dl>
@@ -921,19 +938,13 @@ WITH POPUP -->
                                 <input class="form-control" hidden type="text" value="Approved"  required  name="status">
                             </div>
                         @if($vehicle->LOAN_TYPE === 'TAKEOVER' && Auth::user()->role == 'Credit Operation' && isset($approval_datils) && $approval_datils->status == 'INITIATED')
-                        @php $tkPay = \App\Models\PAYMENT::forLoan($vehicle); @endphp
                         <div class="col-lg-12">
-                          @if($tkPay && $tkPay->CBS_REFERENCE && $tkPay->PAYMENT_ADVICE_ATTACHMENT)
-                            <div class="alert alert-light-success" style="font-size:12.5px">
-                              <b>Takeover:</b> transfer to FSP1 recorded — reference <b>{{ $tkPay->CBS_REFERENCE }}</b>, TZS {{ number_format((float) $tkPay->PAID_AMOUNT, 2) }} by {{ $tkPay->PAID_BY }}.
-                              Approving sends the SWIFT copy to ESS (TAKEOVER_DISBURSEMENT_NOTIFICATION).
+                            <div class="alert alert-light-primary" style="font-size:12.5px">
+                              <b>Takeover:</b> approving disburses the loan as normal. Then pay FSP1 in Profits/TISS and
+                              <b>upload the proof of payment</b> (payment reference + SWIFT copy) under
+                              <a href="{{ route('outgoing-payment-request', ['filter' => 'all', 'q' => $vehicle->APPLICATION_NUMBER]) }}">Take Over Loans → Outgoing Payments</a>;
+                              ESS is notified then (TAKEOVER_DISBURSEMENT_NOTIFICATION).
                             </div>
-                          @else
-                            <div class="alert alert-light-danger" style="font-size:12.5px">
-                              <b>Takeover:</b> record the manual transfer to FSP1 (payment reference + SWIFT copy) before approving —
-                              <a href="{{ route('outgoing-payment-request', ['filter' => 'all', 'q' => $vehicle->APPLICATION_NUMBER]) }}">Take Over Loans → Outgoing Payments → Record transfer</a>.
-                            </div>
-                          @endif
                         </div>
                         @endif
                         <div class="col-lg-12">

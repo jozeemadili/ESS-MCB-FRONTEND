@@ -143,7 +143,7 @@ class loanController extends Controller
             $payment_datails = PAYMENT::orderBy('CREATED_AT', 'asc')->paginate(15);
             return view('admin.loan_take_over.out_going_payment_request', ['payment_datails' => $payment_datails]);
         }
-        $filters = ['awaiting' => 'Awaiting payment', 'paid' => 'Paid, ESS not yet told', 'notified' => 'Completed', 'closed' => 'Cancelled / rejected', 'all' => 'All takeovers'];
+        $filters = ['awaiting' => 'Awaiting proof of payment', 'paid' => 'Proof uploaded, ESS not yet told', 'notified' => 'Completed', 'closed' => 'Cancelled / rejected', 'all' => 'All takeovers'];
         $filter = array_key_exists($request->query('filter'), $filters) ? $request->query('filter') : 'all';
         $search = trim((string) $request->query('q', ''));
         $perPage = in_array((int) $request->query('per_page'), [15, 25, 50, 100]) ? (int) $request->query('per_page') : 15;
@@ -173,8 +173,8 @@ class loanController extends Controller
     }
 
     /**
-     * Takeover (MCB = FSP2): after paying FSP1 manually in Profits/TISS, record the payment reference and the SWIFT copy.
-     * Saved through the gateway (takeover/outgoing-payment); Credit Operation approval then notifies ESS.
+     * Takeover (MCB = FSP2): after Credit Operation disburses and FSP1 is paid in Profits/TISS, upload the proof of payment
+     * (payment reference + SWIFT copy). Saved through the gateway (takeover/outgoing-payment), which notifies ESS straight away.
      */
     public function recordTakeoverTransfer(Request $request)
     {
@@ -186,7 +186,7 @@ class loanController extends Controller
             'payment_advice'     => ['nullable', 'string', 'max:20000'],
         ], [], ['transfer_reference' => 'payment reference', 'swift_copy' => 'SWIFT copy (PDF)']);
         if (!in_array(Auth::user()->role, ['Credit Operation', 'Credit Admin', 'ADMIN'])) {
-            return back()->with('success', '<b>FAILED</b>, your role cannot record takeover transfers.');
+            return back()->with('success', '<b>FAILED</b>, your role cannot upload takeover proof of payment.');
         }
         $body = json_encode([
             'applicationNumber' => $request->application_number,

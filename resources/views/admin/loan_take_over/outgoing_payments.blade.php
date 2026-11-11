@@ -26,8 +26,9 @@
     <div class="alert alert-success outline alert-dismissible fade show" role="alert">{!! $message !!}<button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button></div>
   @endif
   <p class="text-muted" style="font-size:12.5px;margin-top:-6px">
-    <b>MCB takes over</b> these loans from another bank (FSP1) (<i>LOAN_TAKEOVER_OFFER_REQUEST</i>). They follow the normal approval flow; at the
-    <b>Credit Operation</b> step the transfer to FSP1 is recorded (reference, MT advice, PDF) and ESS is notified with <i>TAKEOVER_DISBURSEMENT_NOTIFICATION</i>.
+    <b>MCB takes over</b> these loans from another bank (FSP1) (<i>LOAN_TAKEOVER_OFFER_REQUEST</i>). They follow the normal approval flow
+    (Credit Admin → Credit Operation disburses). After disbursement, pay FSP1 in Profits/TISS and <b>upload the proof of payment</b> here
+    (payment reference + SWIFT copy); ESS is then notified with <i>TAKEOVER_DISBURSEMENT_NOTIFICATION</i>.
   </p>
   <div class="tk-kpis">
     @foreach($filters as $key => $label)
@@ -88,21 +89,22 @@
                     @if($p->PAYMENT_ADVICE_ATTACHMENT)<a class="btn btn-outline-secondary tk-btn" target="_blank" href="{{ route('takeover-outgoing-advice-pdf', ['id' => $p->ID]) }}">PDF</a>@endif
                   </span>
                 @else<span class="tk-sub">Not recorded yet</span>@endif
-                @php $canPay = $canRecord && $loan && $loan->TRANSACTION_STATUS === 'Approved' && $p->STATUS !== 'NOTIFIED'; @endphp
+                @php $canPay = $canRecord && $loan && $loan->TRANSACTION_STATUS === 'Posted to CBS' && $p->STATUS !== 'NOTIFIED'; @endphp
                 @if($canPay)
                   <span class="tk-sub" style="margin-top:6px"><button type="button" class="btn {{ $p->CBS_REFERENCE ? 'btn-outline-primary' : 'btn-primary' }} tk-btn" data-bs-toggle="modal" data-bs-target="#transferModal"
                     data-app="{{ $p->APPLICATION_NUMBER }}" data-amount="{{ (float) $p->TAKE_OVER_AMOUNT }}" data-ref="{{ $p->CBS_REFERENCE }}"
                     data-payto="{{ $p->FSP1_BANK_ACCOUNT_NAME }} · {{ $p->FSP1_BANK_ACCOUNT }} · {{ $p->FSP1_SWIFT_CODE }}" data-fspref="{{ $p->FSP1_PAYMENT_REFERENCE_NUMBER }}"
-                    onclick="tkTransfer(this)"><i class="fa fa-upload"></i> {{ $p->CBS_REFERENCE ? 'Update transfer' : 'Record transfer' }}</button></span>
-                @elseif($loan && $p->STATUS === 'RECEIVED' && !in_array($loan->TRANSACTION_STATUS, ['Approved', 'Rejected']) && !in_array($loan->LOAN_STATUS, ['Cancelled', 'Rejected']))
-                  <span class="tk-sub">Pay after employer approval</span>
+                    onclick="tkTransfer(this)"><i class="fa fa-upload"></i> {{ $p->CBS_REFERENCE ? 'Update proof of payment' : 'Upload proof of payment' }}</button></span>
+                @elseif($loan && $p->STATUS === 'RECEIVED' && !in_array($loan->TRANSACTION_STATUS, ['Posted to CBS', 'Disbursed', 'Rejected']) && !in_array($loan->LOAN_STATUS, ['Cancelled', 'Rejected']))
+                  <span class="tk-sub">Upload after Credit Operation disburses</span>
                 @endif
               </td>
               <td style="min-width:140px">
                 @if($p->STATUS === 'NOTIFIED')<span class="tk-pill ok">Completed</span><span class="tk-sub">ESS notified {{ optional($local($p->NOTIFIED_DATE))->format('d M H:i') }}</span>
-                @elseif($p->STATUS === 'PAID')<span class="tk-pill blue">Paid</span><span class="tk-sub">ESS not yet notified</span>
+                @elseif($p->STATUS === 'PAID')<span class="tk-pill blue">Proof uploaded</span><span class="tk-sub">ESS not yet notified · retried automatically</span>
+                @elseif($loan && $loan->TRANSACTION_STATUS === 'Posted to CBS')<span class="tk-pill wait">Disbursed</span><span class="tk-sub">Upload proof of payment</span>
                 @elseif($loan && (in_array($loan->LOAN_STATUS, ['Cancelled', 'Rejected']) || $loan->TRANSACTION_STATUS === 'Rejected'))<span class="tk-pill grey">{{ $loan->TRANSACTION_STATUS === 'Rejected' ? 'Rejected' : $loan->LOAN_STATUS }}</span><span class="tk-sub">Nothing to pay</span>
-                @else<span class="tk-pill wait">Awaiting payment</span>@endif
+                @else<span class="tk-pill grey">Awaiting disbursement</span>@endif
                 @if($p->STATUS_DESCRIPTION)<span class="tk-note">{{ $p->STATUS_DESCRIPTION }}</span>@endif
               </td>
             </tr>
@@ -129,13 +131,13 @@
 <div class="modal fade" id="transferModal" tabindex="-1" aria-hidden="true" style="display:none;">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
-      <div class="modal-header bg-primary text-white"><h5 class="modal-title">Record transfer to FSP1</h5><button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div>
-      <form method="post" action="{{ route('takeover-transfer-record') }}" enctype="multipart/form-data" onsubmit="return tkBusy(this, 'Saving transfer…')">
+      <div class="modal-header bg-primary text-white"><h5 class="modal-title">Upload proof of payment to FSP1</h5><button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <form method="post" action="{{ route('takeover-transfer-record') }}" enctype="multipart/form-data" onsubmit="return tkBusy(this, 'Saving and notifying ESS…')">
         @csrf
         <div class="modal-body">
           <input type="hidden" name="application_number" id="tkTrApp">
           <div class="alert alert-light-primary" style="font-size:12.5px">
-            Make the fund transfer manually in Profits/TISS first, then record it here.<br>
+            The loan is disbursed. Make the transfer to FSP1 in Profits/TISS, then upload the proof here — ESS is notified as soon as you save.<br>
             Application <b id="tkTrAppText"></b> · pay to <b id="tkTrPayTo"></b> · their reference <b id="tkTrFspRef"></b>
           </div>
           <div class="row">
@@ -152,7 +154,7 @@
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Close</button>
-          <button class="btn btn-primary" type="submit"><i class="fa fa-upload"></i> Save transfer</button>
+          <button class="btn btn-primary" type="submit"><i class="fa fa-paper-plane"></i> Save &amp; notify ESS</button>
         </div>
       </form>
     </div>

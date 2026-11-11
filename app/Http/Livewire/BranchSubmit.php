@@ -53,6 +53,11 @@ class BranchSubmit extends Component
             return;
         }
         $row = BRANCH::where('ID', $id)->first();
+        if ($row && $status == 'Active' && BRANCH::where('BRANCH_CODE', $row->BRANCH_CODE)->where('DISTRICT_CODE', $row->DISTRICT_CODE)
+                ->where('STATUS', 'Active')->where('ID', '<>', $row->ID)->exists()) {
+            session()->flash('error', '<b>'.e(strtoupper($row->BRANCH_NAME)).'</b> already serves '.e(CustomersController::getDistrictName($row->DISTRICT_CODE)).'; this copy stays inactive.');
+            return;
+        }
         if ($row) {
             BRANCH::where('ID', $id)->update(['STATUS' => $status]);
             $district = CustomersController::getDistrictName($row->DISTRICT_CODE);
@@ -99,13 +104,54 @@ class BranchSubmit extends Component
             .($added ? 'Publish to ESS to send the change.' : ''));
     }
 
+    /**
+     * Sends the active mappings to ESS (FSP_BRANCHES) through the gateway. The gateway replies statusCode 200 only when
+     * ESS answers 8000; otherwise statusDescription says why (ESS code, no reply, nothing to send).
+     */
     public function publishBranch()
     {
         abort_unless($this->canManage(), 403);
-        $response = EsbClient::SendesbRequesturl('branches/');
-        $ok = isset($response->statusCode) && $response->statusCode === 200;
-        $desc = $response->statusDescription ?? 'No response from the ESS gateway';
-        return to_route('branches-list')->with('success', ($ok ? '<b>Published to ESS</b>. ' : '<b>Publishing to ESS failed</b>. ').e($desc));
+        if (!BRANCH::where('STATUS', 'Active')->exists()) {
+            return to_route('branches-list')->with('error', '<b>Not published</b>. There are no active mappings to send to ESS.');
+        }
+        try {
+            $response = EsbClient::SendesbRequesturl('branches/');
+            $ok = (int) ($response->statusCode ?? 0) === 200;
+            $desc = $response->statusDescription ?? 'No response from the ESS gateway';
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $body = $e->hasResponse() ? json_decode((string) $e->getResponse()->getBody()) : null;
+            $ok = false;
+            $desc = $body->statusDescription ?? 'The ESS gateway could not be reached';
+            \Log::warning('Branch publish failed: '.$e->getMessage());
+        } catch (\Throwable $e) {
+            $ok = false;
+            $desc = 'The ESS gateway could not be reached';
+            \Log::warning('Branch publish failed: '.$e->getMessage());
+        }
+        return $ok
+            ? to_route('branches-list')->with('success', '<b>Published to ESS</b>. '.e($desc))
+            : to_route('branches-list')->with('error', '<b>Publishing to ESS failed</b>. '.e($desc));
+    }
+
+    /** Active rows the gateway will not send as they are: unknown district codes, and extra copies of a branch/district. */
+    private function issues(array $districts): array
+    {
+        $active = BRANCH::where('STATUS', 'Active')->orderBy('ID')->get(['ID', 'BRANCH_CODE', 'BRANCH_NAME', 'DISTRICT_CODE']);
+        $seen = [];
+        $duplicates = [];
+        $unknown = [];
+        foreach ($active as $r) {
+            $key = trim((string) $r->BRANCH_CODE).'|'.trim((string) $r->DISTRICT_CODE);
+            if (isset($seen[$key])) {
+                $duplicates[$r->ID] = $r;
+            } else {
+                $seen[$key] = true;
+            }
+            if (!isset($districts[trim((string) $r->DISTRICT_CODE)])) {
+                $unknown[$r->ID] = $r;
+            }
+        }
+        return ['duplicates' => $duplicates, 'unknown' => $unknown];
     }
 
     public function render()
@@ -139,7 +185,10 @@ class BranchSubmit extends Component
 
         $mappedForNew = $this->newBranch === '' ? [] : BRANCH::where('BRANCH_CODE', $this->newBranch)->where('STATUS', 'Active')->pluck('DISTRICT_CODE')->all();
 
+        $issues = $this->issues($districts);
+
         return view('livewire.branch-submit', [
+            'issues'    => $issues,
             'rows'      => $rows,
             'branches'  => $branches,
             'districts' => $districts,

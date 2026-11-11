@@ -1,5 +1,9 @@
 @php use App\Http\Controllers\API\Auth\CustomersController as CC; @endphp
 <div class="tk">
+  @if($message = session('error'))
+    <div class="alert alert-danger alert-dismissible fade show" role="alert" style="border-radius:12px">{!! $message !!}
+      <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button></div>
+  @endif
   @if($message = session('success'))
     <div class="alert alert-light border alert-dismissible fade show" role="alert" style="border-radius:12px">{!! $message !!}
       <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button></div>
@@ -60,6 +64,20 @@
       </div>
     </div>
 
+    @if($issues['duplicates'] || $issues['unknown'])
+      <div class="alert alert-warning m-3" style="border-radius:12px;font-size:13px">
+        <b><i class="fa fa-exclamation-triangle"></i> Check these active mappings before publishing</b>
+        <ul class="mb-0 mt-1">
+          @foreach($issues['duplicates'] as $d)
+            <li><b>{{ strtoupper($d->BRANCH_NAME) }}</b> {{ $d->BRANCH_CODE }} is mapped to {{ CC::getDistrictName($d->DISTRICT_CODE) }} ({{ $d->DISTRICT_CODE }}) more than once. ESS gets it once; deactivate the extra copy (marked <i>Duplicate</i>).</li>
+          @endforeach
+          @foreach($issues['unknown'] as $d)
+            <li><b>{{ strtoupper($d->BRANCH_NAME) }}</b> {{ $d->BRANCH_CODE }} uses district code <b>{{ $d->DISTRICT_CODE ?: '(blank)' }}</b>, which is not in the ESS district list. Deactivate it and map the correct district.</li>
+          @endforeach
+        </ul>
+      </div>
+    @endif
+
     <div class="tk-bar">
       <div><b>District mappings</b><span class="tk-count">{{ $rows->total() }} {{ ($search !== '' || $branch !== '' || $status !== '') ? 'matching' : 'in total' }}</span>
         <span class="tk-count" wire:loading><span class="spinner-border spinner-border-sm"></span> Loading…</span></div>
@@ -77,7 +95,9 @@
             <td class="tk-sub" style="margin:0">{{ $rows->firstItem() + $loop->index }}</td>
             <td><b>{{ strtoupper($r->BRANCH_NAME) }}</b> <span class="br-code">{{ $r->BRANCH_CODE }}</span></td>
             <td>{{ CC::getDistrictName($r->DISTRICT_CODE) }} <span class="tk-sub">{{ $r->DISTRICT_CODE ?: 'No district' }}</span></td>
-            <td><span class="tk-pill {{ $active ? 'ok' : 'bad' }}">{{ $r->STATUS ?: 'Unknown' }}</span></td>
+            <td><span class="tk-pill {{ $active ? 'ok' : 'bad' }}">{{ $r->STATUS ?: 'Unknown' }}</span>
+              @if(isset($issues['duplicates'][$r->ID]))<span class="tk-pill wait" title="Same branch and district is already active">Duplicate</span>@endif
+              @if(isset($issues['unknown'][$r->ID]))<span class="tk-pill wait" title="District code not in the ESS district list">Unknown district</span>@endif</td>
             @if($canManage)
             <td><div class="br-actions">
               @if($active)
@@ -146,6 +166,12 @@
       <div class="modal-body">
         <p>Send the active branch and district list ({{ $counts['active'] }} mappings) to ESS Utumishi?</p>
         <p class="tk-sub">Employees choose their nearest MCB branch from this list when they apply.</p>
+        @if($issues['duplicates'] || $issues['unknown'])
+          <div class="alert alert-warning py-2 mb-0" style="font-size:12.5px">
+            @if($issues['duplicates']){{ count($issues['duplicates']) }} duplicate {{ \Illuminate\Support\Str::plural('mapping', count($issues['duplicates'])) }} will be sent once. @endif
+            @if($issues['unknown']){{ count($issues['unknown']) }} {{ \Illuminate\Support\Str::plural('mapping', count($issues['unknown'])) }} with a district code ESS may not know will be sent as is. @endif
+          </div>
+        @endif
       </div>
       <div class="modal-footer">
         <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button>

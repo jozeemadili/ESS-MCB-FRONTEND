@@ -18,6 +18,7 @@ class LoanReport
     /** report key => [title, LOAN_TYPE (null = every loan), short description] */
     public const TYPES = [
         'all'           => ['All Loans Report', null, 'Every loan application received from ESS Utumishi.'],
+        'new'           => ['New Loans Report', 'NEW_LOAN', 'New loans (LOAN_OFFER_REQUEST), including older loans saved before the loan type was recorded.'],
         'restructuring' => ['Restructuring Report', 'RESTRUCTURING', 'Loans re-spread over a new tenure or instalment (LOAN_RESTRUCTURE_REQUEST).'],
         'takeover'      => ['Takeover Report', 'TAKEOVER', 'Loans MCB buys from another bank (LOAN_TAKEOVER_OFFER_REQUEST) with the transfer to FSP1.'],
         'topup'         => ['Top-up Report', 'TOP_UP', 'Top-ups on existing MCB loans (TOP_UP_OFFER_REQUEST) with the settled balance.'],
@@ -98,13 +99,21 @@ class LoanReport
         return !empty($f['start_date']) ? 'date_wise' : 'id_number';
     }
 
-    public static function query(string $type, array $f): Builder
+    /** Limits a query to the report's loan type. New loans also include old rows saved without a LOAN_TYPE. */
+    private static function applyType(Builder $q, string $type): Builder
     {
-        $q = LOANAPPLICATION::query();
-
-        if ($loanType = self::loanType($type)) {
+        $loanType = self::loanType($type);
+        if ($type === 'new') {
+            $q->where(fn ($w) => $w->where('LOAN_TYPE', $loanType)->orWhereNull('LOAN_TYPE')->orWhere('LOAN_TYPE', ''));
+        } elseif ($loanType) {
             $q->where('LOAN_TYPE', $loanType);
         }
+        return $q;
+    }
+
+    public static function query(string $type, array $f): Builder
+    {
+        $q = self::applyType(LOANAPPLICATION::query(), $type);
         // Branch Operations only see their own branch, on screen and in Excel
         $user = Auth::user();
         if ($user && $user->role == 'Branch Operations') {
@@ -135,10 +144,7 @@ class LoanReport
     /** Loan statuses for the Status dropdown (for the report's loan type only). */
     public static function statuses(string $type)
     {
-        $q = LOANAPPLICATION::query()->whereNotNull('LOAN_STATUS')->where('LOAN_STATUS', '<>', '');
-        if ($loanType = self::loanType($type)) {
-            $q->where('LOAN_TYPE', $loanType);
-        }
+        $q = self::applyType(LOANAPPLICATION::query()->whereNotNull('LOAN_STATUS')->where('LOAN_STATUS', '<>', ''), $type);
         return $q->select('LOAN_STATUS')->distinct()->orderBy('LOAN_STATUS')->pluck('LOAN_STATUS');
     }
 
@@ -220,7 +226,16 @@ class LoanReport
             'Loan Status'            => fn ($l) => $l->LOAN_STATUS,
         ];
 
-        if ($type === 'restructuring') {
+        if ($type === 'new') {
+            $cols += [
+                'Loan ID'                => fn ($l) => $l->LOAN_ID,
+                'Product Code'           => fn ($l) => $l->PRODUCT_CODE,
+                'Interest Rate (%)'      => fn ($l) => $l->PRODUCT_INTEREST_RATE,
+                'Total Amount To Pay'    => fn ($l) => self::money($l->TOTAL_AMOUNT_TO_PAY),
+                'Approved Date'          => fn ($l) => self::dt($l->APPROVED_DATE),
+                'Transaction Status'     => fn ($l) => $l->TRANSACTION_STATUS,
+            ];
+        } elseif ($type === 'restructuring') {
             $cols += [
                 'Loan ID'                => fn ($l) => $l->LOAN_ID,
                 'Original Loan ID'       => fn ($l) => $l->ORIGINAL_LOAN_ID,

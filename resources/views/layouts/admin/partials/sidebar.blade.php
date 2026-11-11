@@ -89,6 +89,7 @@
                         <a class="nav-link menu-title {{ $reportsOpen ? 'active' : '' }}" href="javascript:void(0)"><i data-feather="bar-chart-2"></i><span>Reports</span></a>
                         <ul class="nav-submenu menu-content" style="display: {{ $reportsOpen ? 'block' : '' }};">
                             <li><a href="{{route('loans-applications')}}" class="{{routeActive('loans-applications')}}"> - Customise Report</a></li>
+                            <li><a href="{{route('loans-report', 'new')}}" class="{{ request()->is('v1/loans/reports/new') ? 'active' : '' }}"> - New Loans Report</a></li>
                             <li><a href="{{route('loans-report', 'restructuring')}}" class="{{ request()->is('v1/loans/reports/restructuring') ? 'active' : '' }}"> - Restructuring Report</a></li>
                             <li><a href="{{route('loans-report', 'takeover')}}" class="{{ request()->is('v1/loans/reports/takeover') ? 'active' : '' }}"> - Takeover Report</a></li>
                             <li><a href="{{route('loans-report', 'topup')}}" class="{{ request()->is('v1/loans/reports/topup') ? 'active' : '' }}"> - Top-up Report</a></li>

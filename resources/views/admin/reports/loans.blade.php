@@ -10,7 +10,7 @@
   $searching = LoanReport::hasFilters($filters);
   $fmt = fn ($v) => number_format((float) $v, 2, '.', ',');
   $dt = function ($v) { if (empty($v)) return null; try { return $v instanceof \DateTimeInterface ? Carbon::instance($v) : Carbon::parse($v); } catch (\Throwable $e) { return null; } };
-  $tabs = ['all' => ['All Loans', route('loans-applications')], 'restructuring' => ['Restructuring', route('loans-report', 'restructuring')],
+  $tabs = ['all' => ['All Loans', route('loans-applications')], 'new' => ['New Loans', route('loans-report', 'new')], 'restructuring' => ['Restructuring', route('loans-report', 'restructuring')],
            'takeover' => ['Takeover', route('loans-report', 'takeover')], 'topup' => ['Top-up', route('loans-report', 'topup')]];
   $pill = function ($s) { $s = strtolower((string) $s);
       return str_contains($s, 'active') || str_contains($s, 'disburs') || str_contains($s, 'complet') ? 'ok'

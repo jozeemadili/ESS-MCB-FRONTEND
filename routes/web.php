@@ -34,8 +34,8 @@ Route::group(['prefix' => 'v1/','middleware' => ['auth']], function()
     Route::post('loans/aplications', [loanController::class, 'search'])->name('loans-applications');
     Route::get('loans/aplications/rejected', [loanController::class, 'getRejected'])->name('loans-rejected');
     Route::get('loans/aplications/cancelled', [loanController::class, 'getCancelled'])->name('loans-cancelled');
-    Route::get('loans/reports/{type}', [loanController::class, 'report'])->where('type', 'restructuring|takeover|topup')->name('loans-report');
-    Route::get('loans/reports/{type}/download', [loanController::class, 'exportReport'])->where('type', 'all|restructuring|takeover|topup')->name('loans-report-download');
+    Route::get('loans/reports/{type}', [loanController::class, 'report'])->where('type', 'new|restructuring|takeover|topup')->name('loans-report');
+    Route::get('loans/reports/{type}/download', [loanController::class, 'exportReport'])->where('type', 'all|new|restructuring|takeover|topup')->name('loans-report-download');
     Route::get('posted/cbs', [loanController::class, 'getPostCbs'])->name('posted-cbs');
 
 

@@ -75,7 +75,7 @@ Route::group(['prefix' => 'v1/','middleware' => ['auth']], function()
     Route::get('customers/accepted/download', [loanController::class, 'exportAcceptedbyBank'])->name('accepted-reports-download-Excel');
     Route::get('customers/rejected/download', [loanController::class, 'exportRejected'])->name('rejected-reports-download-Excel');
     Route::get('customers/cancelled/download', [loanController::class, 'exportCancelled'])->name('cancelled-reports-download-Excel');
-    Route::get('customers/rejected/download', [loanController::class, 'exportPostedCbs'])->name('posted-cbs-download-Excel');
+    Route::get('customers/posted-cbs/download', [loanController::class, 'exportPostedCbs'])->name('posted-cbs-download-Excel');
     
 
     

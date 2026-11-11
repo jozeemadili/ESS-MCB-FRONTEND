@@ -27,6 +27,7 @@ class BranchSubmit extends Component
     // Add mapping form
     public $newBranch = '';
     public $newDistricts = [];
+    public $pickVersion = 0; // rebuilds the district picker after a save
 
     // Fix an unknown district code
     public $editId = null;
@@ -37,6 +38,13 @@ class BranchSubmit extends Component
         if (in_array($name, ['search', 'branch', 'status'])) {
             $this->resetPage();
         }
+    }
+
+    /** A new branch has its own already-served districts, so the picked districts start again. */
+    public function updatedNewBranch()
+    {
+        $this->newDistricts = [];
+        $this->resetErrorBag('newDistricts');
     }
 
     public function clearFilters()
@@ -101,6 +109,7 @@ class BranchSubmit extends Component
             $added[] = $districts[$code];
         }
         $this->reset(['newDistricts']);
+        $this->pickVersion++;
         $this->dispatchBrowserEvent('branch-mapping-saved');
         session()->flash('success', '<b>'.e(strtoupper($branch->BRANCH_NAME)).'</b>: '
             .($added ? 'added '.e(implode(', ', $added)).'. ' : '')

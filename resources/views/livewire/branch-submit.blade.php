@@ -29,7 +29,14 @@
     .br-issue{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #f3e2bf;}
     .br-issue:first-of-type{margin-top:8px;}
     .br-issue .btn{border-radius:8px;font-weight:600;white-space:nowrap;}
-    .br-edit{display:flex;gap:6px;flex-wrap:wrap;align-items:center;} .br-edit .form-select{min-width:240px;border-radius:8px;}
+    .br-edit{display:flex;gap:6px;flex-wrap:wrap;align-items:center;} .br-s2-wrap{min-width:280px;display:inline-block;}
+    .tk .select2-container--default .select2-selection--single,.tk .select2-container--default .select2-selection--multiple{border:1px solid var(--line);border-radius:10px;min-height:38px;}
+    .tk .select2-container--default .select2-selection--single .select2-selection__rendered{line-height:36px;}
+    .tk .select2-container--default .select2-selection--single .select2-selection__arrow{height:36px;}
+    .tk .select2-container--default .select2-selection--multiple .select2-selection__choice{background:#e8effb;border:0;color:#0d47a1;border-radius:6px;font-size:12.5px;}
+    .select2-container--open .select2-dropdown{z-index:2000;}
+    .tk [wire\:loading].tk-spin{display:none;}
+    .select2-results__option[aria-disabled=true]{color:#9ca3af;}
     @media (max-width:767px){.br-tools{grid-template-columns:1fr;}}
   </style>
 
@@ -87,10 +94,12 @@
             @if($canManage)
               @if($editId === (int) $d->ID)
                 <span class="br-edit">
-                  <select class="form-select form-select-sm" wire:model.defer="editDistrict">
-                    <option value="">Choose the correct district</option>
-                    @foreach($districts as $code => $name)<option value="{{ $code }}">{{ $name }} ({{ $code }})</option>@endforeach
-                  </select>
+                  <span class="br-s2-wrap" wire:ignore wire:key="edit-{{ $editId }}">
+                    <select class="br-s2" data-field="editDistrict" data-placeholder="Search district name or code">
+                      <option value=""></option>
+                      @foreach($districts as $code => $name)<option value="{{ $code }}">{{ $name }} ({{ $code }})</option>@endforeach
+                    </select>
+                  </span>
                   <button class="btn btn-sm btn-primary" type="button" wire:click="saveDistrict" wire:loading.attr="disabled">Save</button>
                   <button class="btn btn-sm btn-light" type="button" wire:click="cancelEdit">Cancel</button>
                   @error('editDistrict')<small class="text-danger d-block w-100">{{ $message }}</small>@enderror
@@ -165,20 +174,15 @@
             @foreach($branches as $b)<option value="{{ $b->BRANCH_CODE }}">{{ strtoupper($b->BRANCH_NAME) }} ({{ $b->BRANCH_CODE }})</option>@endforeach
           </select>
           @error('newBranch')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
-          <label class="form-label mt-3">ESS districts this branch serves <small class="text-muted">(already active ones are ticked off and greyed)</small></label>
-          <div class="br-pick">
-            @foreach($districts as $code => $dname)
-              @php $done = in_array($code, $mappedForNew); @endphp
-              <label class="{{ $done ? 'done' : '' }}" wire:key="d-{{ $code }}">
-                @if($done)
-                  <input type="checkbox" checked disabled>
-                @else
-                  <input type="checkbox" value="{{ $code }}" wire:model.defer="newDistricts" @disabled($newBranch === '')>
-                @endif
-                {{ $dname }} <span class="tk-sub" style="display:inline;margin:0">{{ $code }}</span>
-              </label>
-            @endforeach
+          <label class="form-label mt-3">ESS districts this branch serves <small class="text-muted">(type to search; districts it already serves are greyed out)</small></label>
+          <div wire:ignore wire:key="pick-{{ $newBranch === '' ? 'none' : $newBranch }}-{{ $pickVersion }}">
+            <select class="br-s2" multiple data-field="newDistricts" data-placeholder="{{ $newBranch === '' ? 'Choose the branch first' : 'Search district name or code' }}" @disabled($newBranch === '')>
+              @foreach($districts as $code => $dname)
+                <option value="{{ $code }}" @disabled(in_array($code, $mappedForNew))>{{ $dname }} ({{ $code }}){{ in_array($code, $mappedForNew) ? ' – already served' : '' }}</option>
+              @endforeach
+            </select>
           </div>
+          @if($newBranch !== '')<div class="tk-sub mt-1">{{ count($mappedForNew) }} of {{ count($districts) }} districts already served by this branch.</div>@endif
           @error('newDistricts')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
           <p class="tk-sub mt-2">New mappings are saved as Active. Use <b>Publish to ESS</b> afterwards so employees see the change.</p>
         </div>

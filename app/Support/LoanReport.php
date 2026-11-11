@@ -152,13 +152,14 @@ class LoanReport
     public static function summary(Builder $query): array
     {
         $base = (clone $query)->reorder();
-        $totals = (clone $base)->selectRaw('COUNT(*) AS n, COALESCE(SUM(REQUESTED_AMOUNT),0) AS amount, COALESCE(SUM(MONTHLY_DEDUCTION),0) AS instalment, COALESCE(SUM(PROCESSING_FEE),0) AS fee')->first();
+        $totals = (clone $base)->selectRaw("COUNT(*) AS n, COALESCE(SUM(REQUESTED_AMOUNT),0) AS amount, COALESCE(SUM(CASE WHEN LOAN_STATUS = 'Active' AND MONTHLY_DEDUCTION > 0 THEN MONTHLY_DEDUCTION ELSE 0 END),0) AS instalment, SUM(CASE WHEN LOAN_STATUS = 'Active' THEN 1 ELSE 0 END) AS active, COALESCE(SUM(PROCESSING_FEE),0) AS fee")->first();
         $byStatus = (clone $base)->selectRaw("COALESCE(NULLIF(LOAN_STATUS,''),'Not set') AS s, COUNT(*) AS n")->groupBy('s')->orderByDesc('n')->pluck('n', 's');
 
         return [
             'count'      => (int) ($totals->n ?? 0),
             'amount'     => (float) ($totals->amount ?? 0),
-            'instalment' => (float) ($totals->instalment ?? 0),
+            'instalment' => (float) ($totals->instalment ?? 0), // only Active loans: what is deducted from salaries each month
+            'active'     => (int) ($totals->active ?? 0),
             'fee'        => (float) ($totals->fee ?? 0),
             'byStatus'   => $byStatus,
         ];

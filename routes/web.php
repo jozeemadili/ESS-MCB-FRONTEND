@@ -89,6 +89,9 @@ Route::group(['prefix' => 'v1/','middleware' => ['auth']], function()
     Route::post('security/utumish/branches', [BranchesController::class, 'getBranchBySearch'])->name('branches-list'); 
     
     Route::get('security/users/resert_password/{id}', [PortalUsersController::class, 'resert_password'])->name('security-user-resert_password');
+    Route::post('security/users/reset-password', [PortalUsersController::class, 'resert_password'])->name('security-user-reset');
+    Route::post('security/users/status', [PortalUsersController::class, 'setStatus'])->name('security-user-status');
+    Route::post('security/users/role', [PortalUsersController::class, 'assignRole'])->name('security-user-role');
     
 
 
@@ -106,7 +109,7 @@ Route::group(['prefix' => 'v1/','middleware' => ['auth']], function()
     Route::get('products/get/condition/{id}',[ProductsController::class, 'getProductCondition'])->name('products-condtions');
     Route::post('products/condition/add',[ProductsController::class, 'registerProductCondition'])->name('condition-add'); 
     Route::get('security/product/condition/manage/{id}/{status}', [ProductsController::class, 'updateProdyctConditionStatus'])->name('product-condition-update');
-    Route::get('security/user/profile/manage/{id}/{status}', [ProductsController::class, 'updateUserStatus'])->name('user-status-update');
+    Route::get('security/user/profile/manage/{id}/{status}', [PortalUsersController::class, 'setStatus'])->name('user-status-update');
 
     Route::get('security/branch/mapping/manage/{id}/{status}', [ProductsController::class, 'updateBranchConditionStatus'])->name('branch-mapping-update');
 

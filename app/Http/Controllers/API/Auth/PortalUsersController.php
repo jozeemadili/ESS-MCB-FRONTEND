@@ -25,17 +25,96 @@ use Illuminate\Support\Facades\Route;
 
 class PortalUsersController extends Controller
 {
-    public function get()
+    /** Roles a System Users admin can assign (older roles stay visible on users who still have them). */
+    public const ROLES = [
+        'ADMIN'             => 'Full access, manages users and settings',
+        'Credit Officer'    => 'First review of loans (Waiting CO)',
+        'Credit Admin'      => 'Credit administration approvals (Waiting CA)',
+        'Credit Operation'  => 'Disbursement and takeover payments (Waiting COP)',
+        'Branch Operations' => 'Sees loans of their own branch only',
+        'Reports'           => 'Reports only',
+    ];
+
+    /** Same rule as the System Users menu */
+    public static function canManageUsers($user = null): bool
     {
-        $users = User::orderBy('id','desc')->paginate(10);
-        $distinctBranchCodes = BRANCH::select('BRANCH_CODE', 'BRANCH_NAME')->distinct()->orderBy('BRANCH_CODE','ASC')->get();
-        if(substr(Route::getCurrentRoute()->uri,3) == "security/users")
-        {
-            return view('admin.security.users',['users' => $users, 'distinctBranchCodes' => $distinctBranchCodes]);
-        }
-        return $users;
+        $user = $user ?: Auth::user();
+        return $user && ($user->role == 'ADMIN' || $user->email == 'cmselewa@azaniabank.co.tz');
     }
-    
+
+    public function get(Request $request)
+    {
+        if (substr(Route::getCurrentRoute()->uri, 3) != "security/users") {
+            return User::orderBy('id', 'desc')->paginate(10);
+        }
+        abort_unless(self::canManageUsers(), 403);
+
+        $q      = trim((string) $request->input('q'));
+        $role   = $request->input('role');
+        $status = $request->input('status');
+        $users = User::query()
+            ->when($q !== '', function ($w) use ($q) {
+                $digits = ltrim(preg_replace('/\D/', '', $q), '0');
+                $digits = str_starts_with($digits, '255') ? substr($digits, 3) : $digits;
+                $w->where(function ($x) use ($q, $digits) {
+                    $x->where('first_name', 'like', "%$q%")->orWhere('middle_name', 'like', "%$q%")->orWhere('last_name', 'like', "%$q%")
+                      ->orWhere('email', 'like', "%$q%")->orWhere('title', 'like', "%$q%")->orWhere('id_number', $q);
+                    if ($digits !== '') { $x->orWhere('mobile', 'like', "%$digits%"); }
+                });
+            })
+            ->when($role, fn ($w) => $w->where('role', $role))
+            ->when($status, fn ($w) => $status === 'Reset' ? $w->where('password_resert', 'yes') : $w->where('status', $status))
+            ->orderBy('id', 'desc')->paginate(15)->withQueryString();
+
+        $counts = [
+            'total'    => User::count(),
+            'Active'   => User::where('status', 'Active')->count(),
+            'Inactive' => User::where('status', '<>', 'Active')->count(),
+            'Reset'    => User::where('password_resert', 'yes')->count(),
+        ];
+        $roles = collect(array_keys(self::ROLES))->merge(User::select('role')->distinct()->pluck('role'))->filter()->unique()->values();
+        $distinctBranchCodes = BRANCH::select('BRANCH_CODE', 'BRANCH_NAME')->distinct()->orderBy('BRANCH_CODE', 'ASC')->get();
+
+        return view('admin.security.users', compact('users', 'distinctBranchCodes', 'counts', 'roles', 'q', 'role', 'status'));
+    }
+
+    /** Activate / deactivate a user (not yourself). */
+    public function setStatus(Request $request)
+    {
+        abort_unless(self::canManageUsers(), 403);
+        $request->merge(array_intersect_key((array) optional($request->route())->parameters(), ['id' => 1, 'status' => 1]));
+        $request->validate(['id' => 'required|integer', 'status' => 'required|in:Active,Inactive']);
+        $user = User::findOrFail($request->id);
+        if ($user->id == Auth::id()) {
+            return back()->withErrors(['You cannot change the status of your own account.']);
+        }
+        $user->status = $request->status;
+        $user->save();
+        $what = $request->status == 'Active' ? 'activated' : 'deactivated (cannot log in until activated)';
+        return back()->with('success', '<b>'.e(strtoupper($user->first_name)).'</b> has been '.$what.'.');
+    }
+
+    /** Assign a role (and branch, needed for Branch Operations). */
+    public function assignRole(Request $request)
+    {
+        abort_unless(self::canManageUsers(), 403);
+        $request->validate(['id' => 'required|integer', 'role' => 'required|in:'.implode(',', array_keys(self::ROLES)), 'branch_id' => 'nullable|string|max:11']);
+        $user = User::findOrFail($request->id);
+        if ($user->id == Auth::id() && $request->role != $user->role) {
+            return back()->withErrors(['You cannot change your own role. Ask another administrator.']);
+        }
+        if ($request->role == 'Branch Operations' && !$request->branch_id) {
+            return back()->withErrors(['Choose the branch for a Branch Operations user.']);
+        }
+        $old = $user->role;
+        $user->role = $request->role;
+        if ($request->branch_id) {
+            $user->branch_id = $request->branch_id;
+        }
+        $user->save();
+        return back()->with('success', '<b>'.e(strtoupper($user->first_name)).'</b>: role changed from <b>'.e($old).'</b> to <b>'.e($user->role).'</b>'.($request->branch_id ? ', branch '.e($user->branch_id) : '').'.');
+    }
+
     public function updateProdyctStatus(Request $request)
     {
         $endPoint='http://172.16.3.198:30002/api/v2/hmcis/'.$request->status.'/'.$request->id.'';
@@ -62,7 +141,9 @@ class PortalUsersController extends Controller
 
     public function change_password(Request $request)
     {
-        $request->validate(['new_password'      => ['min:8','regex:/[a-z]/', 'regex:/[A-Z]/','regex:/[@$!%*#?&]/']]);
+        $request->validate(['new_password' => ['required','confirmed','min:8','regex:/[a-z]/', 'regex:/[A-Z]/','regex:/[0-9]/','regex:/[@$!%*#?&]/']],
+            ['new_password.regex' => 'The password needs a lowercase letter, an uppercase letter, a number and a symbol (@$!%*#?&).',
+             'new_password.confirmed' => 'The two passwords do not match.']);
         $User = User::find(Auth::user()->id);
         $User->password    = Hash::make($request->new_password);
         $User->is_first_time_pin = false;
@@ -75,37 +156,22 @@ class PortalUsersController extends Controller
 
     public function resert_password(Request $request)
     {
-        $new_pass = date('His');
-        $User = User::find($request->id);
+        abort_unless(self::canManageUsers(), 403);
+        $User = User::findOrFail($request->id);
+        if ($User->id == Auth::id()) {
+            return back()->withErrors(['Use My Profile to change your own password.']);
+        }
+        // Temporary password that meets the password rules; the user must change it at the next login
+        $new_pass = 'Mcb@'.random_int(1000, 9999).chr(random_int(97, 122)).chr(random_int(65, 90));
         $User->password    = Hash::make($new_pass);
         $User->password_resert    = 'yes';
         $User->is_first_time_pin = false;
         $User->save();
 
-        return redirect('/v1/security/users')->with('success', 'Successfully Resert password, Default Password sms sent to <b>'.$new_pass.'</b>');
-    //     $endPoint='sms';
-    //     $body='{
-    //         "msisdn":"255'.$User->mobile.'",
-    //         "message":"your new passqword is  '.$new_pass.'",
-    //     }
-    //    ';
-    // // dd($body);
-    //     $response = EsbClient::SendesbRequestbody($body,$endPoint); 
-    //     $status = $response->status;
-    //     $statusDescription = $response->statusDescription;
-    //     if ($response->statusCode === 200) 
-    //         {   
-              
-    //           return redirect('/v1/security/users')->with('success', 'Successfully Resert password, Default Password sms sent to <b>'.$User->mobile.'</b>');
-    //         }
-    //     else
-    //         {
-    //         //   return redirect('v1/properties/staff/registration/profile/'.$request->id.'')->with('success', ' <b>FAILED</b>, '.$statusDescription.' ');
-    //           return redirect('/v1/security/users')->with('success', '  <b>FAILED</b> to Resert password.');
-    //         }
-
-        
+        return redirect()->route('portal-users', $request->only('q', 'role', 'status', 'page'))
+            ->with('success', 'Password reset for <b>'.e(strtoupper($User->first_name)).'</b>. Temporary password: <b class="tk-mono">'.$new_pass.'</b>. Give it to the user privately; they must change it when they log in.');
     }
+
     public function sendOTP($otp, $authenticatedUser = null)
     {
         $utils = new Utils();
@@ -142,21 +208,19 @@ class PortalUsersController extends Controller
     }
 
     public function search(Request $request)
-    { 
-        $company_id = Auth::user()->company_id;
-        $accessAll  = Auth::user()->company_id == 1;
-        $users = $accessAll ? User::where('mobile', $request->phone_number)->orWhere('id_number', $request->id_number)->orWhere('first_name', $request->cname)->orWhere('middle_name', $request->cname)->orWhere('last_name', $request->cname)->orderBy('id','desc')->paginate(10) : User::where('company_id', $company_id)->where('mobile', $request->phone_number)->orWhere('id_number', $request->id_number)->orWhere('first_name', $request->cname)->orWhere('middle_name', $request->cname)->orWhere('last_name', $request->cname)->orderBy('id','desc')->paginate(10);
-
-        if(substr(Route::getCurrentRoute()->uri,3) == "security/users")
-        {
-            return view('admin.security.users',['users' => $users]);
+    {
+        if (substr(Route::getCurrentRoute()->uri, 3) == "security/users") {
+            $q = $request->input('q', $request->input('cname', $request->input('phone_number', $request->input('id_number'))));
+            return redirect()->route('portal-users', array_filter(['q' => $q, 'role' => $request->input('role'), 'status' => $request->input('status')]));
         }
+        $users = User::where('mobile', $request->phone_number)->orWhere('id_number', $request->id_number)->orWhere('first_name', $request->cname)->orderBy('id','desc')->paginate(10);
         return response()->json(['responseCode'=> 'SUCCESS','message'=>'User Found Successfully', 'users' => $users]);
     }
 
     public function register(Request $request)
     {
-        $request->validate(['first_name' => ['required', 'min:3'], 'email' => ['required', 'email','unique:users'],'password' => ['required','min:8','regex:/[a-z]/', 'regex:/[A-Z]/','regex:/[@$!%*#?&]/'], 'mobile' => ['required', 'min:9', 'max:9', 'unique:users']]);           
+        abort_unless(self::canManageUsers(), 403);
+        $request->validate(['first_name' => ['required', 'min:3'], 'email' => ['required', 'email','unique:users'],'password' => ['required','confirmed','min:8','regex:/[a-z]/', 'regex:/[A-Z]/','regex:/[@$!%*#?&]/'], 'mobile' => ['required', 'digits:9', 'unique:users'], 'role' => ['required', 'in:'.implode(',', array_keys(self::ROLES))]]);           
         $user = User::create(
             [
                 'email'         => $request->email,

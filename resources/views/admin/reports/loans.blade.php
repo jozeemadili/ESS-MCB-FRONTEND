@@ -90,7 +90,7 @@
   <div class="rp-kpis">
     <div class="rp-kpi"><span>Records</span><b>{{ number_format($summary['count']) }}</b><small>{{ $searching ? 'matching your search' : 'in this report' }}</small></div>
     <div class="rp-kpi" style="--a:#137a43"><span>Total loan amount</span><b>{{ $fmt($summary['amount']) }}</b><small>TZS</small></div>
-    <div class="rp-kpi" style="--a:#f28c28"><span>Total monthly deduction</span><b>{{ $fmt($summary['instalment']) }}</b><small>TZS</small></div>
+    <div class="rp-kpi" style="--a:#f28c28"><span>Monthly deduction (active loans)</span><b>{{ $fmt($summary['instalment']) }}</b><small>TZS · {{ number_format($summary['active']) }} active loan{{ $summary['active'] == 1 ? '' : 's' }}</small></div>
     <div class="rp-kpi" style="--a:#6d28d9"><span>By loan status</span>
       <div class="rp-status">
         @forelse($summary['byStatus']->take(5) as $s => $n)

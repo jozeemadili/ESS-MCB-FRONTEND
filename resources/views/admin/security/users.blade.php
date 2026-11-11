@@ -55,7 +55,9 @@
     <a class="tk-kpi {{ !$status ? 'on' : '' }}" href="{{ route('portal-users', array_filter(['q' => $q, 'role' => $role])) }}"><span>All users</span><b>{{ $counts['total'] }}</b></a>
     <a class="tk-kpi {{ $status == 'Active' ? 'on' : '' }}" style="--a:#137a43" href="{{ route('portal-users', array_filter(['q' => $q, 'role' => $role, 'status' => 'Active'])) }}"><span>Active</span><b>{{ $counts['Active'] }}</b></a>
     <a class="tk-kpi {{ $status == 'Inactive' ? 'on' : '' }}" style="--a:#c62828" href="{{ route('portal-users', array_filter(['q' => $q, 'role' => $role, 'status' => 'Inactive'])) }}"><span>Deactivated</span><b>{{ $counts['Inactive'] }}</b></a>
+@if($counts['Reset'] !== null)
     <a class="tk-kpi {{ $status == 'Reset' ? 'on' : '' }}" style="--a:#f28c28" href="{{ route('portal-users', array_filter(['q' => $q, 'role' => $role, 'status' => 'Reset'])) }}"><span>Must change password</span><b>{{ $counts['Reset'] }}</b></a>
+    @endif
   </div>
 
   <div class="tk-card">
@@ -69,7 +71,7 @@
         <select class="form-select" id="usStatus" name="status"><option value="">All</option>
           <option value="Active" @selected($status == 'Active')>Active</option>
           <option value="Inactive" @selected($status == 'Inactive')>Deactivated</option>
-          <option value="Reset" @selected($status == 'Reset')>Must change password</option>
+          @if($counts['Reset'] !== null)<option value="Reset" @selected($status == 'Reset')>Must change password</option>@endif
         </select></div>
       <div class="d-flex gap-2"><button class="btn btn-primary" type="submit"><i class="fa fa-search"></i> Search</button>
         @if($filtered)<a class="btn btn-light" href="{{ route('portal-users') }}">Reset</a>@endif</div>

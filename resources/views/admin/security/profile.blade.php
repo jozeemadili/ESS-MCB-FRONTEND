@@ -38,11 +38,17 @@
   .pf-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
   .pf-tag{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:3px 11px;font-size:11.5px;font-weight:700;}
   .pf-tag.ok{background:#e6f6ee;color:#137a43;border-color:#e6f6ee;} .pf-tag.bad{background:#fdecec;color:#c62828;border-color:#fdecec;}
-  .pf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
-  .pf-item{padding:16px 22px;border-top:1px solid var(--line);border-right:1px solid var(--line);}
-  .pf-item span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);font-weight:700;}
-  .pf-item b{display:block;font-size:14.5px;margin-top:4px;word-break:break-word;}
-  .pf-item small{color:var(--mut);}
+  .pf-list{list-style:none;margin:0;padding:6px 0;}
+  .pf-list li{display:flex;align-items:center;gap:14px;padding:13px 24px;border-bottom:1px solid var(--line);}
+  .pf-list li:last-child{border-bottom:0;}
+  .pf-list li:hover{background:#fafcff;}
+  .pf-list i{flex:0 0 34px;height:34px;border-radius:10px;background:#e8effb;color:var(--b);display:flex;align-items:center;justify-content:center;font-size:14px;}
+  .pf-list span{flex:0 0 190px;color:var(--mut);font-size:13px;font-weight:600;}
+  .pf-list b{flex:1;font-size:14px;font-weight:700;text-align:right;word-break:break-word;}
+  .pf-list small{display:block;color:var(--mut);font-weight:500;font-size:11.5px;margin-top:2px;}
+  .pf-st{display:inline-block;padding:3px 11px;border-radius:20px;font-size:11.5px;font-weight:700;}
+  .pf-st.ok{background:#e6f6ee;color:#137a43;} .pf-st.bad{background:#fdecec;color:#c62828;}
+  @media (max-width:575px){.pf-list li{flex-wrap:wrap;} .pf-list span{flex:1;} .pf-list b{flex-basis:100%;text-align:left;padding-left:48px;}}
   .pf-head{padding:16px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;}
   .pf-head i{width:34px;height:34px;border-radius:10px;background:#e8effb;color:var(--b);display:flex;align-items:center;justify-content:center;}
   .pf-head b{font-size:15px;} .pf-head small{display:block;color:var(--mut);font-weight:400;}
@@ -80,17 +86,18 @@
             </div>
           </div>
         </div>
-        <div class="pf-grid">
-          <div class="pf-item"><span>Full name</span><b>{{ $name }}</b></div>
-          <div class="pf-item"><span>Username</span><b>{{ $u->title ? strtoupper($u->title) : '—' }}</b></div>
-          <div class="pf-item"><span>Email address</span><b>{{ strtolower($u->email) }}</b></div>
-          <div class="pf-item"><span>Phone number</span><b>+255 {{ $u->mobile }}</b></div>
-          <div class="pf-item"><span>Bank</span><b>{{ strtoupper(optional($u->company)->name ?? 'Mwalimu Commercial Bank') }}</b></div>
-          <div class="pf-item"><span>Branch</span><b>{{ $branchName ?: '—' }}</b><small>{{ $u->branch_id ? 'Code '.$u->branch_id : '' }}</small></div>
-          <div class="pf-item"><span>System role</span><b>{{ $u->role }}</b></div>
-          <div class="pf-item"><span>Registered</span><b>{{ optional($u->created_at)->format('d M Y, H:i') }}</b><small>{{ optional($u->created_at)->diffForHumans() }}</small></div>
-          <div class="pf-item"><span>Last profile update</span><b>{{ $u->updated_at ? \Carbon\Carbon::parse($u->updated_at)->format('d M Y, H:i') : '—' }}</b><small>{{ $u->updated_at ? \Carbon\Carbon::parse($u->updated_at)->diffForHumans() : '' }}</small></div>
-        </div>
+        <ul class="pf-list">
+          <li><i class="fa fa-user"></i><span>Full name</span><b>{{ $name }}</b></li>
+          <li><i class="fa fa-at"></i><span>Username</span><b>{{ $u->title ? strtoupper($u->title) : '—' }}</b></li>
+          <li><i class="fa fa-envelope"></i><span>Email address</span><b>{{ strtolower($u->email) }}</b></li>
+          <li><i class="fa fa-phone"></i><span>Phone number</span><b>+255 {{ $u->mobile }}</b></li>
+          <li><i class="fa fa-university"></i><span>Bank</span><b>{{ strtoupper(optional($u->company)->name ?? 'Mwalimu Commercial Bank') }}</b></li>
+          <li><i class="fa fa-map-marker"></i><span>Branch</span><b>{{ $branchName ?: '—' }}@if($u->branch_id)<small>Code {{ $u->branch_id }}</small>@endif</b></li>
+          <li><i class="fa fa-shield"></i><span>System role</span><b>{{ $u->role }}</b></li>
+          <li><i class="fa fa-circle"></i><span>Account status</span><b><span class="pf-st {{ $active ? 'ok' : 'bad' }}">{{ $active ? 'Active' : ($u->status ?: 'Inactive') }}</span></b></li>
+          <li><i class="fa fa-calendar"></i><span>Registered</span><b>{{ optional($u->created_at)->format('d M Y, H:i') }}<small>{{ optional($u->created_at)->diffForHumans() }}</small></b></li>
+          <li><i class="fa fa-clock-o"></i><span>Last profile update</span><b>{{ $u->updated_at ? \Carbon\Carbon::parse($u->updated_at)->format('d M Y, H:i') : '—' }}<small>{{ $u->updated_at ? \Carbon\Carbon::parse($u->updated_at)->diffForHumans() : '' }}</small></b></li>
+        </ul>
       </div>
     </div>
 

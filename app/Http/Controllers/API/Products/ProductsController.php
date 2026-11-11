@@ -57,6 +57,8 @@ class ProductsController extends Controller
         
         //     dd($saved); // Check if save was successful
         // }
+        abort_unless(\App\Http\Controllers\API\Auth\PortalUsersController::canManageUsers(), 403);
+        abort_unless(in_array($request->status, ['Active', 'Inactive']), 400);
         $updated = BRANCH::where('ID', $request->id)->update(['STATUS' => $request->status]);
 
 if ($updated) {

@@ -341,8 +341,9 @@ class CustomersController extends Controller
         return ($id_type == 1 ? "NIDA" : (($id_type == 2 ? "Voters" : ($id_type == 3 ? "PASSPORT" : ($id_type == 4 ? "DRIVING LICENCE" : ($id_type == 5 ? "ZANID" : ($id_type == 6 ? "TIN" : ($id_type == 7 ? "INCORPORATION CERTIFICATE" : "N/A"))))) )));
     }
   
-    static function getDistrictName($code) {
-        $districts = [
+    /** District codes used by ESS Utumishi (DISTRICT_CODE => name). */
+    public static function districts(): array {
+        return [
             "DIS1" => "ILALA",
             "DIS2" => "ILALA CBD",
             "DIS3" => "KIGAMBONI",
@@ -515,7 +516,10 @@ class CustomersController extends Controller
             "DIS171" => "CHALINZE",
             "DIS201" => "SIMIYU"
         ];
-    
+    }
+
+    static function getDistrictName($code) {
+        $districts = self::districts();
         return isset($districts[$code]) ? $districts[$code] : "Unknown District Code";
     }
 

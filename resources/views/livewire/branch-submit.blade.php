@@ -1,781 +1,165 @@
-@extends('layouts.admin.master')
-@section('title')
-{{ucfirst(str_replace('-',' ',Route::currentRouteName()))}}
-@endsection
-@push('css')
-<link rel="stylesheet" type="text/css" href="{{ asset('assets/css/date-picker.css') }}">
-@endpush
+@php use App\Http\Controllers\API\Auth\CustomersController as CC; @endphp
+<div class="tk">
+  @if($message = session('success'))
+    <div class="alert alert-light border alert-dismissible fade show" role="alert" style="border-radius:12px">{!! $message !!}
+      <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button></div>
+  @endif
+  <style>
+    .br-tools{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);align-items:end;}
+    .br-tools label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);font-weight:700;margin-bottom:4px;display:block;}
+    .br-tools .form-control,.br-tools .form-select{border:1px solid var(--line);border-radius:10px;font-size:13px;height:38px;}
+    .br-tools .btn{height:38px;border-radius:10px;font-weight:600;font-size:13px;}
+    .br-branches{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px;}
+    .br-branch{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;text-align:left;width:100%;}
+    .br-branch.on{box-shadow:0 0 0 2px var(--b) inset;}
+    .br-branch b{font-size:14.5px;display:block;} .br-branch small{color:var(--mut);}
+    .br-bar{height:6px;border-radius:6px;background:#eef1f6;margin-top:10px;overflow:hidden;} .br-bar i{display:block;height:100%;background:#137a43;}
+    .br-code{display:inline-block;background:#f1f5f9;color:#334155;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;font-family:SFMono-Regular,Menlo,Consolas,monospace;}
+    .br-actions{display:flex;justify-content:flex-end;gap:6px;}
+    .br-actions .btn{border-radius:8px;font-weight:600;font-size:12px;padding:4px 10px;white-space:nowrap;}
+    .br-pick{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px 10px;}
+    .br-pick label{font-size:12.5px;display:flex;gap:6px;align-items:center;margin:0;padding:3px 0;}
+    .br-pick label.done{color:var(--mut);}
+    .tk-pager nav{margin:0;}
+    @media (max-width:767px){.br-tools{grid-template-columns:1fr;}}
+  </style>
 
-@section('content')
-  @component('components.breadcrumb')
-    @slot('breadcrumb_title')
-      <!-- <h3>{{ucfirst(str_replace('-',' ',Route::currentRouteName()))}}</h3> -->
-    @endslot
-
-    @slot('breadcrumb_action_buttons')
-    <li><button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newModal">New Branch <i class="icofont icofont-plus-circle"></i></button></li>
-    <!-- <li><button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newModalSearch">Search Branch <i class="icofont icofont-plus-circle"></i></button></li> -->
-    <!-- <li><button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newModalMapping">Branch Maping<i class="icofont icofont-plus-circle"></i></button></li> -->
- 
-    @endslot
-    
-    <!-- <li class="breadcrumb-item">{{ucfirst(explode('-', Route::currentRouteName())[0])}}</li>
-    -->
-  @endcomponent
-  
-  <div class="container-fluid">
-      <div class="row">
-          <div class="col-sm-12">
-              <div class="card">
-
- 
-                  <div class="card-body">
-                  @foreach ($errors->all() as $error)
-                  <div class="alert alert-danger outline alert-dismissible fade show" role="alert">
-                    <i class="icon-info-alt txt-danger"></i>
-                        {{ $error }}
-                    <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close" data-bs-original-title="" title=""></button>
-                    </div>
-                  @endforeach
-                  
-                  @if($message = Session::get('success'))
-                    <div class="alert alert-success outline alert-dismissible fade show" role="alert">
-                    <i class="icofont icofont-check-circled"></i>
-                        {!! $message !!}
-                    <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close" data-bs-original-title="" title=""></button>
-                    </div>
-                    <br />
-					@endif
-
-                      <p>
-                      <div class="table-responsive">
-                       
-                      
-						<table class="table table-xs">
-							<thead>
-								<tr>
-                               
-                                <th scope="col">#</th>
-									
-                                    <th scope="col">branch code</th>
-                                    <th scope="col">branch name</th>
-                                    <th scope="col">district</th>
-                                    <th scope="col">Status</th>
-                                    <th scope="col">Action</th>
-                                    
-								</tr>
-							</thead>
-							<tbody>
-                          
-                            @foreach ($loans as $loan)
-								<tr>
-                               
-									<th scope="row">{{$loop->index + 1}}.</th>
-								    
-                                    <td>{{$loan['BRANCH_CODE']}}</td>
-                                    <td>{{strtoupper($loan['BRANCH_NAME'])}}</td>
-                                    <td>{{App\Http\Controllers\API\Auth\CustomersController::getDistrictName($loan['DISTRICT_CODE'])}} ({{$loan['DISTRICT_CODE']}})</td>
-                                    <td>{{$loan['STATUS']}}</td>
-                                    <td> 
-                                        @if($loan['STATUS'] === 'Active')
-                                        <div class="pull-right"> <a href='{!! Route('branch-mapping-update', ['id' => $loan['ID'], 'status' => 'Inactive']) !!}' class='btn btn-outline-danger btn-xs'>Deactivate </a></div>
-                                        @elseif($loan['STATUS'] === 'Inactive')
-                                        <div class="pull-right"> <a href='{!! Route('branch-mapping-update', ['id' => $loan['ID'], 'status' => 'Active']) !!}' class='btn btn-outline-primary btn-xs'>Activate </a></div>
-                                        @else
-                                        @endif
-
-                                    </td>
-                                    
-								</tr>
-                                @endforeach
-							</tbody>
-						</table>
-                        <br />
-                        {{ $loans->links() }}
-                        <button wire:click="publishBranch" class="btn btn-outline-primary btn-xs pull-right"  type="button" wire:loading.remove> Publish Branches <i class="icofont icofont-ui-rate-add"></i></button>
-                         
-                        <div wire:loading.delay>
-                        <div class="loader-box">
-                            <div class="loader-7" style="width: 50px; height:50px;"></div>
-                            <br/>
-                                <h5 class="f-w-100">Processing ...</h5>
-                            </div>
-                        </div>
-                    </div>
-                        
-					</div>
-                      </p>
-                  </div>
-              </div>
-          </div>
-      </div>
+  <div class="tk-kpis">
+    <div class="tk-kpi"><span>Branches</span><b>{{ $counts['branches'] }}</b></div>
+    <div class="tk-kpi" style="--a:#137a43"><span>Districts served</span><b>{{ $counts['districts'] }}</b></div>
+    <div class="tk-kpi" style="--a:#0d47a1"><span>Active mappings</span><b>{{ $counts['active'] }}</b></div>
+    <div class="tk-kpi" style="--a:#c62828"><span>Inactive mappings</span><b>{{ $counts['inactive'] }}</b></div>
+    <div class="tk-kpi" style="--a:#f28c28"><span>Districts not served</span><b>{{ $counts['unmapped'] }}</b></div>
   </div>
 
- <!-- NEW MODAL START -->
- <div class="modal fade" id="newModal" tabindex="-1" aria-hidden="true" style="display: none;">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">Branch  Registration</h5>
-                <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close" ></button>
-            </div>
-            <div class="modal-body">
-                <form method="post" action="v1/intermediary/branches/add">
-                    @csrf
-                    <div class="row">
-                        <div class="col-lg-12">
-                            <!-- <div class="form-group">
-                                <label class="col-form-label" >Branch Code</label>
-                                <input class="form-control" type="number"  required  name="BRANCH_CODE">
-                            </div>
-                            <div class="form-group">
-                                <label class="col-form-label" >Branch Name</label>
-                                <input class="form-control" type="text" required  name="BRANCH_NAME">
-                            </div> -->
-                            <div class="form-group">
-                            <label class="col-form-label" >Select Mwalimu Bank Branch</label>
-                                <select class="form-select" required name="BRANCH_CODE">
-                                <option value="">--- Choose Branch ---</option>  
-                                        @foreach ($distinctBranchCodes as $branch)
-                                    <option value='{{strtoupper($branch->BRANCH_CODE)}}'>{{strtoupper($branch->BRANCH_NAME)}} ({{strtoupper($branch->BRANCH_CODE)}})</option>
-                                    @endforeach
-								</select>
-                            </div>
-                            <div class="form-group">
-                                <label class="col-form-label" >Select District</label>
-                                <select class="form-select" required name="DISTRICT_CODE">
-                                <option value="DIS1">ILALA</option>
-                                <option value="DIS2">ILALA CBD</option>
-                                <option value="DIS3">KIGAMBONI</option>
-                                <option value="DIS4">KINONDONI</option>
-                                <option value="DIS5">TEMEKE</option>
-                                <option value="DIS6">UBUNGO</option>
-                                <option value="DIS7">HANDENI</option>
-                                <option value="DIS8">KILINDI</option>
-                                <option value="DIS9">KOROGWE</option>
-                                <option value="DIS10">LUSHOTO</option>
-                                <option value="DIS11">MKINGA</option>
-                                <option value="DIS12">MUHEZA</option>
-                                <option value="DIS13">PANGANI</option>
-                                <option value="DIS14">TANGA</option>
-                                <option value="DIS15">TANGA CBD</option>
-                                <option value="DIS16">ARUSHA</option>
-                                <option value="DIS17">ARUSHA CBD</option>
-                                <option value="DIS18">KARATU</option>
-                                <option value="DIS19">LONGIDO</option>
-                                <option value="DIS20">MERU</option>
-                                <option value="DIS21">MONDULI</option>
-                                <option value="DIS22">NGORONGORO</option>
-                                <option value="DIS23">HAI</option>
-                                <option value="DIS24">MOSHI</option>
-                                <option value="DIS25">MOSHI CBD</option>
-                                <option value="DIS26">MWANGA</option>
-                                <option value="DIS27">ROMBO</option>
-                                <option value="DIS28">SAME</option>
-                                <option value="DIS29">SIHA</option>
-                                <option value="DIS30">BABATI</option>
-                                <option value="DIS31">BABATI CBD</option>
-                                <option value="DIS32">HANANG'</option>
-                                <option value="DIS33">KITETO</option>
-                                <option value="DIS34">MBULU</option>
-                                <option value="DIS35">SIMANJIRO</option>
-                                <option value="DIS36">BUKOMBE</option>
-                                <option value="DIS37">CHATO</option>
-                                <option value="DIS38">GEITA</option>
-                                <option value="DIS39">MBOGWE</option>
-                                <option value="DIS40">NYANG'HWALE</option>
-                                <option value="DIS41">BUNDA</option>
-                                <option value="DIS42">BUTIAMA</option>
-                                <option value="DIS43">MUSOMA CBD</option>
-                                <option value="DIS44">RORYA</option>
-                                <option value="DIS45">SERENGETI</option>
-                                <option value="DIS46">TARIME</option>
-                                <option value="DIS47">ILEMELA</option>
-                                <option value="DIS48">KWIMBA</option>
-                                <option value="DIS49">MAGU</option>
-                                <option value="DIS50">MISUNGWI</option>
-                                <option value="DIS51">NYAMAGANA</option>
-                                <option value="DIS52">SENGEREMA</option>
-                                <option value="DIS53">UKEREWE</option>
-                                <option value="DIS54">BIHARAMULO</option>
-                                <option value="DIS55">BUKOBA</option>
-                                <option value="DIS56">BUKOBA CBD</option>
-                                <option value="DIS57">KARAGWE</option>
-                                <option value="DIS58">KYERWA</option>
-                                <option value="DIS59">MISENYI</option>
-                                <option value="DIS60">MULEBA</option>
-                                <option value="DIS61">NGARA</option>
-                                <option value="DIS62">KAHAMA</option>
-                                <option value="DIS63">KISHAPU</option>
-                                <option value="DIS64">SHINYANGA</option>
-                                <option value="DIS65">SHINYANGA CBD</option>
-                                <option value="DIS66">BARIADI</option>
-                                <option value="DIS67">BUSEGA</option>
-                                <option value="DIS68">ITILIMA</option>
-                                <option value="DIS69">MASWA</option>
-                                <option value="DIS70">MEATU</option>
-                                <option value="DIS71">BAHI</option>
-                                <option value="DIS72">CHAMWINO</option>
-                                <option value="DIS73">CHEMBA</option>
-                                <option value="DIS74">DODOMA</option>
-                                <option value="DIS75">DODOMA CBD</option>
-                                <option value="DIS76">KONDOA</option>
-                                <option value="DIS77">KONGWA</option>
-                                <option value="DIS78">MPWAPWA</option>
-                                <option value="DIS79">IKUNGI</option>
-                                <option value="DIS80">IRAMBA</option>
-                                <option value="DIS81">MANYONI</option>
-                                <option value="DIS82">MKALAMA</option>
-                                <option value="DIS83">SINGIDA</option>
-                                <option value="DIS84">SINGIDA CBD</option>
-                                <option value="DIS85">IGUNGA</option>
-                                <option value="DIS86">KALIUA</option>
-                                <option value="DIS87">NZEGA</option>
-                                <option value="DIS88">SIKONGE</option>
-                                <option value="DIS89">TABORA CBD</option>
-                                <option value="DIS90">URAMBO</option>
-                                <option value="DIS91">UYUI</option>
-                                <option value="DIS92">BUHIGWE</option>
-                                <option value="DIS93">KAKONKO</option>
-                                <option value="DIS94">KASULU</option>
-                                <option value="DIS95">KIBONDO</option>
-                                <option value="DIS96">KIGOMA</option>
-                                <option value="DIS97">KIGOMA CBD</option>
-                                <option value="DIS98">UVINZA</option>
-                                <option value="DIS99">MLELE</option>
-                                <option value="DIS100">MPANDA CBD</option>
-                                <option value="DIS101">TANGANYIKA</option>
-                                <option value="DIS102">IRINGA</option>
-                                <option value="DIS103">IRINGA CBD</option>
-                                <option value="DIS104">KILOLO</option>
-                                <option value="DIS105">MUFINDI</option>
-                                <option value="DIS106">CHUNYA</option>
-                                <option value="DIS107">KYELA</option>
-                                <option value="DIS108">MBARALI</option>
-                                <option value="DIS109">MBEYA</option>
-                                <option value="DIS110">MBEYA CBD</option>
-                                <option value="DIS111">RUNGWE</option>
-                                <option value="DIS112">ILEJE</option>
-                                <option value="DIS113">MBOZI</option>
-                                <option value="DIS114">MOMBA</option>
-                                <option value="DIS115">SONGWE</option>
-                                <option value="DIS116">KALAMBO</option>
-                                <option value="DIS117">NKASI</option>
-                                <option value="DIS118">SUMBAWANGA</option>
-                                <option value="DIS119">SUMBAWANGA CBD</option>
-                                <option value="DIS120">MBINGA</option>
-                                <option value="DIS121">NYASA</option>
-                                <option value="DIS122">SONGEA</option>
-                                <option value="DIS123">SONGEA CBD</option>
-                                <option value="DIS124">TUNDURU</option>
-                                <option value="DIS125">LUDEWA</option>
-                                <option value="DIS126">NJOMBE</option>
-                                <option value="DIS127">NJOMBE CBD</option>
-                                <option value="DIS128">WANGING'OMBE</option>
-                                <option value="DIS129">BAGAMOYO</option>
-                                <option value="DIS130">KIBAHA</option>
-                                <option value="DIS131">KIBAHA CBD</option>
-                                <option value="DIS132">KIBITI</option>
-                                <option value="DIS133">KISARAWE</option>
-                                <option value="DIS134">MAFIA</option>
-                                <option value="DIS135">MKURANGA</option>
-                                <option value="DIS136">RUFIJI</option>
-                                <option value="DIS137">MASASI</option>
-                                <option value="DIS138">MTWARA</option>
-                                <option value="DIS139">MTWARA CBD</option>
-                                <option value="DIS140">NANYUMBU</option>
-                                <option value="DIS141">NEWALA</option>
-                                <option value="DIS142">TANDAHIMBA</option>
-                                <option value="DIS143">KILWA</option>
-                                <option value="DIS144">LINDI</option>
-                                <option value="DIS145">LINDI CBD</option>
-                                <option value="DIS146">LIWALE</option>
-                                <option value="DIS147">NACHINGWEA</option>
-                                <option value="DIS148">RUANGWA</option>
-                                <option value="DIS149">GAIRO</option>
-                                <option value="DIS150">KILOMBERO</option>
-                                <option value="DIS151">KILOSA</option>
-                                <option value="DIS152">MALINYI</option>
-                                <option value="DIS153">MOROGORO</option>
-                                <option value="DIS154">MOROGORO CBD</option>
-                                <option value="DIS155">MVOMERO</option>
-                                <option value="DIS156">ULANGA</option>
-                                <option value="DIS157">MAGHARIBI "A"</option>
-                                <option value="DIS158">MAGHARIBI "B"</option>
-                                <option value="DIS159">MJINI</option>
-                                <option value="DIS160">KATI</option>
-                                <option value="DIS161">KUSINI</option>
-                                <option value="DIS162">KASKAZINI A</option>
-                                <option value="DIS163">KASKAZINI B</option>
-                                <option value="DIS164">CHAKECHAKE</option>
-                                <option value="DIS165">MKOANI</option>
-                                <option value="DIS166">MICHEWENI</option>
-                                <option value="DIS167">WETE</option>
-                                <option value="DIS168">MAKETE</option>
-                                <option value="DIS170">NAMTUMBO</option>
-                                <option value="DIS171">CHALINZE</option>
-                                <option value="DIS201">MUSOMA</option>
-                                <option value="DIS202">Geita CDB</option>
+  {{-- One card per branch: click to filter --}}
+  <div class="br-branches">
+    @foreach($branches as $b)
+      <button type="button" class="br-branch {{ $branch === (string) $b->BRANCH_CODE ? 'on' : '' }}" wire:click="$set('branch', '{{ $branch === (string) $b->BRANCH_CODE ? '' : $b->BRANCH_CODE }}')">
+        <b>{{ strtoupper($b->BRANCH_NAME) }}</b>
+        <small><span class="br-code">{{ $b->BRANCH_CODE }}</span> · {{ (int) $b->active }} active of {{ $b->total }} districts</small>
+        <div class="br-bar"><i style="width:{{ $b->total ? round($b->active / $b->total * 100) : 0 }}%"></i></div>
+      </button>
+    @endforeach
+  </div>
 
-                                   
-								</select>
-                            </div>
-                            
-                            
-                        </div>
+  <div class="tk-card">
+    <div class="br-tools">
+      <div><label for="brSearch">Search</label><input id="brSearch" class="form-control" wire:model.debounce.400ms="search" placeholder="District, district code or branch"></div>
+      <div><label for="brBranch">Branch</label>
+        <select id="brBranch" class="form-select" wire:model="branch"><option value="">All branches</option>
+          @foreach($branches as $b)<option value="{{ $b->BRANCH_CODE }}">{{ strtoupper($b->BRANCH_NAME) }} ({{ $b->BRANCH_CODE }})</option>@endforeach
+        </select></div>
+      <div><label for="brStatus">Status</label>
+        <select id="brStatus" class="form-select" wire:model="status"><option value="">All</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+      <div class="d-flex gap-2">
+        @if($search !== '' || $branch !== '' || $status !== '')<button class="btn btn-light" type="button" wire:click="clearFilters">Clear</button>@endif
+        @if($canManage)
+          <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#brAdd"><i class="fa fa-plus"></i> Add districts</button>
+        @endif
+      </div>
+    </div>
 
-                        <div class="col-lg-6">
-                           
-                        </div>
-                    </div>
-                
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" type="button" data-bs-dismiss="modal" >Close</button>
-                <button class="btn btn-primary" type="submit" >Confirm & Register</button>
-                </form>
-            </div>
+    <div class="tk-bar">
+      <div><b>District mappings</b><span class="tk-count">{{ $rows->total() }} {{ ($search !== '' || $branch !== '' || $status !== '') ? 'matching' : 'in total' }}</span>
+        <span class="tk-count" wire:loading><span class="spinner-border spinner-border-sm"></span> Loading…</span></div>
+      @if($canManage)
+        <button class="btn btn-success tk-btn" type="button" data-bs-toggle="modal" data-bs-target="#brPublish"><i class="fa fa-cloud-upload"></i> Publish to ESS</button>
+      @endif
+    </div>
+    <div class="tk-scroll">
+      <table class="tk-table">
+        <thead><tr><th>#</th><th>Branch</th><th>ESS district</th><th>Status</th>@if($canManage)<th style="text-align:right">Action</th>@endif</tr></thead>
+        <tbody>
+        @forelse($rows as $r)
+          @php $active = $r->STATUS === 'Active'; @endphp
+          <tr wire:key="br-{{ $r->ID }}">
+            <td class="tk-sub" style="margin:0">{{ $rows->firstItem() + $loop->index }}</td>
+            <td><b>{{ strtoupper($r->BRANCH_NAME) }}</b> <span class="br-code">{{ $r->BRANCH_CODE }}</span></td>
+            <td>{{ CC::getDistrictName($r->DISTRICT_CODE) }} <span class="tk-sub">{{ $r->DISTRICT_CODE ?: 'No district' }}</span></td>
+            <td><span class="tk-pill {{ $active ? 'ok' : 'bad' }}">{{ $r->STATUS ?: 'Unknown' }}</span></td>
+            @if($canManage)
+            <td><div class="br-actions">
+              @if($active)
+                <button class="btn btn-outline-danger" type="button" wire:click="setStatus({{ $r->ID }}, 'Inactive')" wire:loading.attr="disabled" onclick="confirm('Stop {{ addslashes(strtoupper($r->BRANCH_NAME)) }} from serving {{ addslashes(CC::getDistrictName($r->DISTRICT_CODE)) }}?') || event.stopImmediatePropagation()"><i class="fa fa-ban"></i> Deactivate</button>
+              @else
+                <button class="btn btn-outline-success" type="button" wire:click="setStatus({{ $r->ID }}, 'Active')" wire:loading.attr="disabled"><i class="fa fa-check"></i> Activate</button>
+              @endif
+            </div></td>
+            @endif
+          </tr>
+        @empty
+          <tr><td colspan="5" class="tk-empty"><i class="fa fa-map-o fa-2x d-block mb-2"></i>No district mappings match your search.</td></tr>
+        @endforelse
+        </tbody>
+      </table>
+    </div>
+    <div class="tk-pager">
+      <span>{{ $rows->total() ? 'Showing '.$rows->firstItem().'–'.$rows->lastItem().' of '.$rows->total() : 'No records' }}</span>
+      {{ $rows->links() }}
+    </div>
+  </div>
+
+  @if($canManage)
+  {{-- Add districts to a branch --}}
+  <div class="modal fade" id="brAdd" tabindex="-1" aria-hidden="true" wire:ignore.self>
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+      <form wire:submit.prevent="addMapping">
+        <div class="modal-header"><h5 class="modal-title">Add districts to a branch</h5><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+          <label class="form-label" for="brNewBranch">Branch</label>
+          <select id="brNewBranch" class="form-select mb-1" wire:model="newBranch">
+            <option value="">Choose branch</option>
+            @foreach($branches as $b)<option value="{{ $b->BRANCH_CODE }}">{{ strtoupper($b->BRANCH_NAME) }} ({{ $b->BRANCH_CODE }})</option>@endforeach
+          </select>
+          @error('newBranch')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
+          <label class="form-label mt-3">ESS districts this branch serves <small class="text-muted">(already active ones are ticked off and greyed)</small></label>
+          <div class="br-pick">
+            @foreach($districts as $code => $dname)
+              @php $done = in_array($code, $mappedForNew); @endphp
+              <label class="{{ $done ? 'done' : '' }}" wire:key="d-{{ $code }}">
+                @if($done)
+                  <input type="checkbox" checked disabled>
+                @else
+                  <input type="checkbox" value="{{ $code }}" wire:model.defer="newDistricts" @disabled($newBranch === '')>
+                @endif
+                {{ $dname }} <span class="tk-sub" style="display:inline;margin:0">{{ $code }}</span>
+              </label>
+            @endforeach
+          </div>
+          @error('newDistricts')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
+          <p class="tk-sub mt-2">New mappings are saved as Active. Use <b>Publish to ESS</b> afterwards so employees see the change.</p>
         </div>
-    </div>
-    </div>
-
-     <!-- NEW MODAL START -->
- <div class="modal fade" id="newModalSearch" tabindex="-1" aria-hidden="true" style="display: none;">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">Branch  Search</h5>
-                <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close" ></button>
-            </div>
-            <div class="modal-body">
-        
-            <form method="post" action="{{ Route('branches-list') }}">
-                
-                    @csrf
-                    <div class="row">
-                        <div class="col-lg-12">
-                        <div class="form-group">
-                                <label class="col-form-label" >Select District</label>
-                                <select class="form-select" required name="DISTRICT_CODE">
-                                <option value="DIS1">ILALA</option>
-                                <option value="DIS2">ILALA CBD</option>
-                                <option value="DIS3">KIGAMBONI</option>
-                                <option value="DIS4">KINONDONI</option>
-                                <option value="DIS5">TEMEKE</option>
-                                <option value="DIS6">UBUNGO</option>
-                                <option value="DIS7">HANDENI</option>
-                                <option value="DIS8">KILINDI</option>
-                                <option value="DIS9">KOROGWE</option>
-                                <option value="DIS10">LUSHOTO</option>
-                                <option value="DIS11">MKINGA</option>
-                                <option value="DIS12">MUHEZA</option>
-                                <option value="DIS13">PANGANI</option>
-                                <option value="DIS14">TANGA</option>
-                                <option value="DIS15">TANGA CBD</option>
-                                <option value="DIS16">ARUSHA</option>
-                                <option value="DIS17">ARUSHA CBD</option>
-                                <option value="DIS18">KARATU</option>
-                                <option value="DIS19">LONGIDO</option>
-                                <option value="DIS20">MERU</option>
-                                <option value="DIS21">MONDULI</option>
-                                <option value="DIS22">NGORONGORO</option>
-                                <option value="DIS23">HAI</option>
-                                <option value="DIS24">MOSHI</option>
-                                <option value="DIS25">MOSHI CBD</option>
-                                <option value="DIS26">MWANGA</option>
-                                <option value="DIS27">ROMBO</option>
-                                <option value="DIS28">SAME</option>
-                                <option value="DIS29">SIHA</option>
-                                <option value="DIS30">BABATI</option>
-                                <option value="DIS31">BABATI CBD</option>
-                                <option value="DIS32">HANANG'</option>
-                                <option value="DIS33">KITETO</option>
-                                <option value="DIS34">MBULU</option>
-                                <option value="DIS35">SIMANJIRO</option>
-                                <option value="DIS36">BUKOMBE</option>
-                                <option value="DIS37">CHATO</option>
-                                <option value="DIS38">GEITA</option>
-                                <option value="DIS39">MBOGWE</option>
-                                <option value="DIS40">NYANG'HWALE</option>
-                                <option value="DIS41">BUNDA</option>
-                                <option value="DIS42">BUTIAMA</option>
-                                <option value="DIS43">MUSOMA CBD</option>
-                                <option value="DIS44">RORYA</option>
-                                <option value="DIS45">SERENGETI</option>
-                                <option value="DIS46">TARIME</option>
-                                <option value="DIS47">ILEMELA</option>
-                                <option value="DIS48">KWIMBA</option>
-                                <option value="DIS49">MAGU</option>
-                                <option value="DIS50">MISUNGWI</option>
-                                <option value="DIS51">NYAMAGANA</option>
-                                <option value="DIS52">SENGEREMA</option>
-                                <option value="DIS53">UKEREWE</option>
-                                <option value="DIS54">BIHARAMULO</option>
-                                <option value="DIS55">BUKOBA</option>
-                                <option value="DIS56">BUKOBA CBD</option>
-                                <option value="DIS57">KARAGWE</option>
-                                <option value="DIS58">KYERWA</option>
-                                <option value="DIS59">MISENYI</option>
-                                <option value="DIS60">MULEBA</option>
-                                <option value="DIS61">NGARA</option>
-                                <option value="DIS62">KAHAMA</option>
-                                <option value="DIS63">KISHAPU</option>
-                                <option value="DIS64">SHINYANGA</option>
-                                <option value="DIS65">SHINYANGA CBD</option>
-                                <option value="DIS66">BARIADI</option>
-                                <option value="DIS67">BUSEGA</option>
-                                <option value="DIS68">ITILIMA</option>
-                                <option value="DIS69">MASWA</option>
-                                <option value="DIS70">MEATU</option>
-                                <option value="DIS71">BAHI</option>
-                                <option value="DIS72">CHAMWINO</option>
-                                <option value="DIS73">CHEMBA</option>
-                                <option value="DIS74">DODOMA</option>
-                                <option value="DIS75">DODOMA CBD</option>
-                                <option value="DIS76">KONDOA</option>
-                                <option value="DIS77">KONGWA</option>
-                                <option value="DIS78">MPWAPWA</option>
-                                <option value="DIS79">IKUNGI</option>
-                                <option value="DIS80">IRAMBA</option>
-                                <option value="DIS81">MANYONI</option>
-                                <option value="DIS82">MKALAMA</option>
-                                <option value="DIS83">SINGIDA</option>
-                                <option value="DIS84">SINGIDA CBD</option>
-                                <option value="DIS85">IGUNGA</option>
-                                <option value="DIS86">KALIUA</option>
-                                <option value="DIS87">NZEGA</option>
-                                <option value="DIS88">SIKONGE</option>
-                                <option value="DIS89">TABORA CBD</option>
-                                <option value="DIS90">URAMBO</option>
-                                <option value="DIS91">UYUI</option>
-                                <option value="DIS92">BUHIGWE</option>
-                                <option value="DIS93">KAKONKO</option>
-                                <option value="DIS94">KASULU</option>
-                                <option value="DIS95">KIBONDO</option>
-                                <option value="DIS96">KIGOMA</option>
-                                <option value="DIS97">KIGOMA CBD</option>
-                                <option value="DIS98">UVINZA</option>
-                                <option value="DIS99">MLELE</option>
-                                <option value="DIS100">MPANDA CBD</option>
-                                <option value="DIS101">TANGANYIKA</option>
-                                <option value="DIS102">IRINGA</option>
-                                <option value="DIS103">IRINGA CBD</option>
-                                <option value="DIS104">KILOLO</option>
-                                <option value="DIS105">MUFINDI</option>
-                                <option value="DIS106">CHUNYA</option>
-                                <option value="DIS107">KYELA</option>
-                                <option value="DIS108">MBARALI</option>
-                                <option value="DIS109">MBEYA</option>
-                                <option value="DIS110">MBEYA CBD</option>
-                                <option value="DIS111">RUNGWE</option>
-                                <option value="DIS112">ILEJE</option>
-                                <option value="DIS113">MBOZI</option>
-                                <option value="DIS114">MOMBA</option>
-                                <option value="DIS115">SONGWE</option>
-                                <option value="DIS116">KALAMBO</option>
-                                <option value="DIS117">NKASI</option>
-                                <option value="DIS118">SUMBAWANGA</option>
-                                <option value="DIS119">SUMBAWANGA CBD</option>
-                                <option value="DIS120">MBINGA</option>
-                                <option value="DIS121">NYASA</option>
-                                <option value="DIS122">SONGEA</option>
-                                <option value="DIS123">SONGEA CBD</option>
-                                <option value="DIS124">TUNDURU</option>
-                                <option value="DIS125">LUDEWA</option>
-                                <option value="DIS126">NJOMBE</option>
-                                <option value="DIS127">NJOMBE CBD</option>
-                                <option value="DIS128">WANGING'OMBE</option>
-                                <option value="DIS129">BAGAMOYO</option>
-                                <option value="DIS130">KIBAHA</option>
-                                <option value="DIS131">KIBAHA CBD</option>
-                                <option value="DIS132">KIBITI</option>
-                                <option value="DIS133">KISARAWE</option>
-                                <option value="DIS134">MAFIA</option>
-                                <option value="DIS135">MKURANGA</option>
-                                <option value="DIS136">RUFIJI</option>
-                                <option value="DIS137">MASASI</option>
-                                <option value="DIS138">MTWARA</option>
-                                <option value="DIS139">MTWARA CBD</option>
-                                <option value="DIS140">NANYUMBU</option>
-                                <option value="DIS141">NEWALA</option>
-                                <option value="DIS142">TANDAHIMBA</option>
-                                <option value="DIS143">KILWA</option>
-                                <option value="DIS144">LINDI</option>
-                                <option value="DIS145">LINDI CBD</option>
-                                <option value="DIS146">LIWALE</option>
-                                <option value="DIS147">NACHINGWEA</option>
-                                <option value="DIS148">RUANGWA</option>
-                                <option value="DIS149">GAIRO</option>
-                                <option value="DIS150">KILOMBERO</option>
-                                <option value="DIS151">KILOSA</option>
-                                <option value="DIS152">MALINYI</option>
-                                <option value="DIS153">MOROGORO</option>
-                                <option value="DIS154">MOROGORO CBD</option>
-                                <option value="DIS155">MVOMERO</option>
-                                <option value="DIS156">ULANGA</option>
-                                <option value="DIS157">MAGHARIBI "A"</option>
-                                <option value="DIS158">MAGHARIBI "B"</option>
-                                <option value="DIS159">MJINI</option>
-                                <option value="DIS160">KATI</option>
-                                <option value="DIS161">KUSINI</option>
-                                <option value="DIS162">KASKAZINI A</option>
-                                <option value="DIS163">KASKAZINI B</option>
-                                <option value="DIS164">CHAKECHAKE</option>
-                                <option value="DIS165">MKOANI</option>
-                                <option value="DIS166">MICHEWENI</option>
-                                <option value="DIS167">WETE</option>
-                                <option value="DIS168">MAKETE</option>
-                                <option value="DIS170">NAMTUMBO</option>
-                                <option value="DIS171">CHALINZE</option>
-                                <option value="DIS201">MUSOMA</option>
-                                <option value="DIS202">Geita CDB</option>
-
-                                   
-								</select>
-                            </div>
-                           
-                            
-                            
-                        </div>
-
-                        <div class="col-lg-6">
-                           
-                        </div>
-                    </div>
-                
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" type="button" data-bs-dismiss="modal" >Close</button>
-                <button wire:click="searchBybranch" class="btn btn-primary" type="submit" >Confirm & Search</button>
-</form>
-              </div>
-            </div>
+        <div class="modal-footer">
+          <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" type="submit" wire:loading.attr="disabled" wire:target="addMapping">
+            <span wire:loading wire:target="addMapping" class="tk-spin"></span> Save districts</button>
         </div>
-    </div>
-    </div>
- <!-- NEW MODAL END -->
-  <!-- NEW MODAL START -->
-  <div class="modal fade" id="newModalMapping" tabindex="-1" aria-hidden="true" style="display: none;">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">Branch Mapping</h5>
-                <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close" ></button>
-            </div>
-            <div class="modal-body">
-                <form method="post" action="v1/intermediary/branches/add">
-                    @csrf
-                    <div class="row">
-                        <div class="col-lg-12">
-                        
-                            <label class="col-form-label" >Select Azania Branch</label>
-                                <select class="form-select" required name="BRANCH_CODE">
-                                <option value="">--- Choose Branch ---</option>  
-                                        @foreach ($loans as $branch)
-                                    <option value='{{strtoupper($branch->BRANCH_CODE)}}'>{{strtoupper($branch->BRANCH_NAME)}} ({{strtoupper($branch->BRANCH_CODE)}})</option>
-                                    @endforeach
-								</select>
-                          
-                        
-                            <div class="form-group">
-                                <label class="col-form-label" >Select District</label>
-                                <select class="form-select" required name="DISTRICT_CODE">
-                                <option value="DIS1">ILALA</option>
-                                <option value="DIS2">ILALA CBD</option>
-                                <option value="DIS3">KIGAMBONI</option>
-                                <option value="DIS4">KINONDONI</option>
-                                <option value="DIS5">TEMEKE</option>
-                                <option value="DIS6">UBUNGO</option>
-                                <option value="DIS7">HANDENI</option>
-                                <option value="DIS8">KILINDI</option>
-                                <option value="DIS9">KOROGWE</option>
-                                <option value="DIS10">LUSHOTO</option>
-                                <option value="DIS11">MKINGA</option>
-                                <option value="DIS12">MUHEZA</option>
-                                <option value="DIS13">PANGANI</option>
-                                <option value="DIS14">TANGA</option>
-                                <option value="DIS15">TANGA CBD</option>
-                                <option value="DIS16">ARUSHA</option>
-                                <option value="DIS17">ARUSHA CBD</option>
-                                <option value="DIS18">KARATU</option>
-                                <option value="DIS19">LONGIDO</option>
-                                <option value="DIS20">MERU</option>
-                                <option value="DIS21">MONDULI</option>
-                                <option value="DIS22">NGORONGORO</option>
-                                <option value="DIS23">HAI</option>
-                                <option value="DIS24">MOSHI</option>
-                                <option value="DIS25">MOSHI CBD</option>
-                                <option value="DIS26">MWANGA</option>
-                                <option value="DIS27">ROMBO</option>
-                                <option value="DIS28">SAME</option>
-                                <option value="DIS29">SIHA</option>
-                                <option value="DIS30">BABATI</option>
-                                <option value="DIS31">BABATI CBD</option>
-                                <option value="DIS32">HANANG'</option>
-                                <option value="DIS33">KITETO</option>
-                                <option value="DIS34">MBULU</option>
-                                <option value="DIS35">SIMANJIRO</option>
-                                <option value="DIS36">BUKOMBE</option>
-                                <option value="DIS37">CHATO</option>
-                                <option value="DIS38">GEITA</option>
-                                <option value="DIS39">MBOGWE</option>
-                                <option value="DIS40">NYANG'HWALE</option>
-                                <option value="DIS41">BUNDA</option>
-                                <option value="DIS42">BUTIAMA</option>
-                                <option value="DIS43">MUSOMA CBD</option>
-                                <option value="DIS44">RORYA</option>
-                                <option value="DIS45">SERENGETI</option>
-                                <option value="DIS46">TARIME</option>
-                                <option value="DIS47">ILEMELA</option>
-                                <option value="DIS48">KWIMBA</option>
-                                <option value="DIS49">MAGU</option>
-                                <option value="DIS50">MISUNGWI</option>
-                                <option value="DIS51">NYAMAGANA</option>
-                                <option value="DIS52">SENGEREMA</option>
-                                <option value="DIS53">UKEREWE</option>
-                                <option value="DIS54">BIHARAMULO</option>
-                                <option value="DIS55">BUKOBA</option>
-                                <option value="DIS56">BUKOBA CBD</option>
-                                <option value="DIS57">KARAGWE</option>
-                                <option value="DIS58">KYERWA</option>
-                                <option value="DIS59">MISENYI</option>
-                                <option value="DIS60">MULEBA</option>
-                                <option value="DIS61">NGARA</option>
-                                <option value="DIS62">KAHAMA</option>
-                                <option value="DIS63">KISHAPU</option>
-                                <option value="DIS64">SHINYANGA</option>
-                                <option value="DIS65">SHINYANGA CBD</option>
-                                <option value="DIS66">BARIADI</option>
-                                <option value="DIS67">BUSEGA</option>
-                                <option value="DIS68">ITILIMA</option>
-                                <option value="DIS69">MASWA</option>
-                                <option value="DIS70">MEATU</option>
-                                <option value="DIS71">BAHI</option>
-                                <option value="DIS72">CHAMWINO</option>
-                                <option value="DIS73">CHEMBA</option>
-                                <option value="DIS74">DODOMA</option>
-                                <option value="DIS75">DODOMA CBD</option>
-                                <option value="DIS76">KONDOA</option>
-                                <option value="DIS77">KONGWA</option>
-                                <option value="DIS78">MPWAPWA</option>
-                                <option value="DIS79">IKUNGI</option>
-                                <option value="DIS80">IRAMBA</option>
-                                <option value="DIS81">MANYONI</option>
-                                <option value="DIS82">MKALAMA</option>
-                                <option value="DIS83">SINGIDA</option>
-                                <option value="DIS84">SINGIDA CBD</option>
-                                <option value="DIS85">IGUNGA</option>
-                                <option value="DIS86">KALIUA</option>
-                                <option value="DIS87">NZEGA</option>
-                                <option value="DIS88">SIKONGE</option>
-                                <option value="DIS89">TABORA CBD</option>
-                                <option value="DIS90">URAMBO</option>
-                                <option value="DIS91">UYUI</option>
-                                <option value="DIS92">BUHIGWE</option>
-                                <option value="DIS93">KAKONKO</option>
-                                <option value="DIS94">KASULU</option>
-                                <option value="DIS95">KIBONDO</option>
-                                <option value="DIS96">KIGOMA</option>
-                                <option value="DIS97">KIGOMA CBD</option>
-                                <option value="DIS98">UVINZA</option>
-                                <option value="DIS99">MLELE</option>
-                                <option value="DIS100">MPANDA CBD</option>
-                                <option value="DIS101">TANGANYIKA</option>
-                                <option value="DIS102">IRINGA</option>
-                                <option value="DIS103">IRINGA CBD</option>
-                                <option value="DIS104">KILOLO</option>
-                                <option value="DIS105">MUFINDI</option>
-                                <option value="DIS106">CHUNYA</option>
-                                <option value="DIS107">KYELA</option>
-                                <option value="DIS108">MBARALI</option>
-                                <option value="DIS109">MBEYA</option>
-                                <option value="DIS110">MBEYA CBD</option>
-                                <option value="DIS111">RUNGWE</option>
-                                <option value="DIS112">ILEJE</option>
-                                <option value="DIS113">MBOZI</option>
-                                <option value="DIS114">MOMBA</option>
-                                <option value="DIS115">SONGWE</option>
-                                <option value="DIS116">KALAMBO</option>
-                                <option value="DIS117">NKASI</option>
-                                <option value="DIS118">SUMBAWANGA</option>
-                                <option value="DIS119">SUMBAWANGA CBD</option>
-                                <option value="DIS120">MBINGA</option>
-                                <option value="DIS121">NYASA</option>
-                                <option value="DIS122">SONGEA</option>
-                                <option value="DIS123">SONGEA CBD</option>
-                                <option value="DIS124">TUNDURU</option>
-                                <option value="DIS125">LUDEWA</option>
-                                <option value="DIS126">NJOMBE</option>
-                                <option value="DIS127">NJOMBE CBD</option>
-                                <option value="DIS128">WANGING'OMBE</option>
-                                <option value="DIS129">BAGAMOYO</option>
-                                <option value="DIS130">KIBAHA</option>
-                                <option value="DIS131">KIBAHA CBD</option>
-                                <option value="DIS132">KIBITI</option>
-                                <option value="DIS133">KISARAWE</option>
-                                <option value="DIS134">MAFIA</option>
-                                <option value="DIS135">MKURANGA</option>
-                                <option value="DIS136">RUFIJI</option>
-                                <option value="DIS137">MASASI</option>
-                                <option value="DIS138">MTWARA</option>
-                                <option value="DIS139">MTWARA CBD</option>
-                                <option value="DIS140">NANYUMBU</option>
-                                <option value="DIS141">NEWALA</option>
-                                <option value="DIS142">TANDAHIMBA</option>
-                                <option value="DIS143">KILWA</option>
-                                <option value="DIS144">LINDI</option>
-                                <option value="DIS145">LINDI CBD</option>
-                                <option value="DIS146">LIWALE</option>
-                                <option value="DIS147">NACHINGWEA</option>
-                                <option value="DIS148">RUANGWA</option>
-                                <option value="DIS149">GAIRO</option>
-                                <option value="DIS150">KILOMBERO</option>
-                                <option value="DIS151">KILOSA</option>
-                                <option value="DIS152">MALINYI</option>
-                                <option value="DIS153">MOROGORO</option>
-                                <option value="DIS154">MOROGORO CBD</option>
-                                <option value="DIS155">MVOMERO</option>
-                                <option value="DIS156">ULANGA</option>
-                                <option value="DIS157">MAGHARIBI "A"</option>
-                                <option value="DIS158">MAGHARIBI "B"</option>
-                                <option value="DIS159">MJINI</option>
-                                <option value="DIS160">KATI</option>
-                                <option value="DIS161">KUSINI</option>
-                                <option value="DIS162">KASKAZINI A</option>
-                                <option value="DIS163">KASKAZINI B</option>
-                                <option value="DIS164">CHAKECHAKE</option>
-                                <option value="DIS165">MKOANI</option>
-                                <option value="DIS166">MICHEWENI</option>
-                                <option value="DIS167">WETE</option>
-                                <option value="DIS168">MAKETE</option>
-                                <option value="DIS170">NAMTUMBO</option>
-                                <option value="DIS171">CHALINZE</option>
-                                <option value="DIS201">MUSOMA</option>
-                                <option value="DIS202">Geita CDB</option>
+      </form>
+    </div></div>
+  </div>
 
-                                   
-								</select>
-                            </div>
-                            
-                            
-                        </div>
+  {{-- Publish --}}
+  <div class="modal fade" id="brPublish" tabindex="-1" aria-hidden="true" wire:ignore.self>
+    <div class="modal-dialog"><div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Publish branches to ESS</h5><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body">
+        <p>Send the active branch and district list ({{ $counts['active'] }} mappings) to ESS Utumishi?</p>
+        <p class="tk-sub">Employees choose their nearest MCB branch from this list when they apply.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success" type="button" wire:click="publishBranch" wire:loading.attr="disabled" wire:target="publishBranch">
+          <span wire:loading wire:target="publishBranch" class="tk-spin"></span> Publish</button>
+      </div>
+    </div></div>
+  </div>
 
-                        <div class="col-lg-6">
-                           
-                        </div>
-                    </div>
-                
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" type="button" data-bs-dismiss="modal" >Close</button>
-                <button class="btn btn-primary" type="submit" >Confirm & Register</button>
-                </form>
-            </div>
-        </div>
-    </div>
-    </div>
- <!-- NEW MODAL END -->
-
-  @push('scripts')
-  @endpush
-@endsection
+  <script>
+    window.addEventListener('branch-mapping-saved', function () {
+      var m = document.getElementById('brAdd');
+      try { bootstrap.Modal.getOrCreateInstance(m).hide(); } catch (e) {}
+    });
+  </script>
+  @endif
+</div>

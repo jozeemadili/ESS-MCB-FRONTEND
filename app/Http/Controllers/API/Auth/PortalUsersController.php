@@ -63,14 +63,14 @@ class PortalUsersController extends Controller
                 });
             })
             ->when($role, fn ($w) => $w->where('role', $role))
-            ->when($status, fn ($w) => $status === 'Reset' ? $w->where('password_resert', 'yes') : $w->where('status', $status))
+            ->when($status, fn ($w) => $status === 'Reset' ? (User::hasResetFlag() ? $w->where('password_resert', 'yes') : $w->whereRaw('1 = 0')) : $w->where('status', $status))
             ->orderBy('id', 'desc')->paginate(15)->withQueryString();
 
         $counts = [
             'total'    => User::count(),
             'Active'   => User::where('status', 'Active')->count(),
             'Inactive' => User::where('status', '<>', 'Active')->count(),
-            'Reset'    => User::where('password_resert', 'yes')->count(),
+            'Reset'    => User::hasResetFlag() ? User::where('password_resert', 'yes')->count() : null,
         ];
         $roles = collect(array_keys(self::ROLES))->merge(User::select('role')->distinct()->pluck('role'))->filter()->unique()->values();
         $distinctBranchCodes = BRANCH::select('BRANCH_CODE', 'BRANCH_NAME')->distinct()->orderBy('BRANCH_CODE', 'ASC')->get();
@@ -147,7 +147,7 @@ class PortalUsersController extends Controller
         $User = User::find(Auth::user()->id);
         $User->password    = Hash::make($request->new_password);
         $User->is_first_time_pin = false;
-        $User->password_resert = 'no';
+        if (User::hasResetFlag()) { $User->password_resert = 'no'; }
         $User->save();
         Session::flush();
         Auth::logout();
@@ -164,12 +164,12 @@ class PortalUsersController extends Controller
         // Temporary password that meets the password rules; the user must change it at the next login
         $new_pass = 'Mcb@'.random_int(1000, 9999).chr(random_int(97, 122)).chr(random_int(65, 90));
         $User->password    = Hash::make($new_pass);
-        $User->password_resert    = 'yes';
+        if (User::hasResetFlag()) { $User->password_resert = 'yes'; }
         $User->is_first_time_pin = false;
         $User->save();
 
         return redirect()->route('portal-users', $request->only('q', 'role', 'status', 'page'))
-            ->with('success', 'Password reset for <b>'.e(strtoupper($User->first_name)).'</b>. Temporary password: <b class="tk-mono">'.$new_pass.'</b>. Give it to the user privately; they must change it when they log in.');
+            ->with('success', 'Password reset for <b>'.e(strtoupper($User->first_name)).'</b>. Temporary password: <b class="tk-mono">'.$new_pass.'</b>. Give it to the user privately'.(User::hasResetFlag() ? '; they must change it when they log in.' : ' and ask them to change it from My Profile.'));
     }
 
     public function sendOTP($otp, $authenticatedUser = null)

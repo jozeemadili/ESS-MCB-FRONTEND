@@ -128,6 +128,16 @@ class User extends Authenticatable
 		'authorized_at'
 	];
 
+	/** The password_resert column (must change password after a reset) is missing on some databases. */
+	public static function hasResetFlag(): bool
+	{
+		static $has = null;
+		if ($has === null) {
+			try { $has = \Illuminate\Support\Facades\Schema::hasColumn('users', 'password_resert'); } catch (\Throwable $e) { $has = false; }
+		}
+		return $has;
+	}
+
 	public function company()
 	{
 		return $this->belongsTo(Company::class);

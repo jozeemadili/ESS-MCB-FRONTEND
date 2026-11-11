@@ -64,6 +64,11 @@
         ?: (!in_array(strtoupper($reasonRaw), ['', 'REJECTED', 'APPROVED', 'OK']) ? $reasonRaw : null);
     $cancelled = $ls === 'cancelled' || $tx === 'cancelled';
     $coDone = !in_array($ls, ['pending', '']) || !in_array($tx, ['pending', '']);
+    // Employee cancellation on ESS (LOAN_CANCELLATION_NOTIFICATION), allowed until the employer approves. The Credit
+    // Officer decided only if a decision time was recorded (a CO rejection keeps the loan Rejected, not Cancelled).
+    $cancelledAt = $cancelled && $vehicle->APPROVED_BY === 'Employee (ESS)' ? $local($vehicle->APPROVED_DATE) : null;
+    $cancelReason = $cancelled && !in_array(strtoupper($reasonRaw), ['', 'REJECTED', 'APPROVED', 'OK']) ? $reasonRaw : null;
+    if ($cancelled) { $coDone = (bool) $coAt; }
     $employerDone = in_array($tx, ['approved', 'disbursed', 'posted to cbs', 'restructured']);
     $copDone = ($caStage && $caStage->status === 'DISBURSED') || in_array($tx, ['disbursed', 'posted to cbs', 'restructured']);
     $isRestructure = $vehicle->LOAN_TYPE === 'RESTRUCTURING';
@@ -77,8 +82,8 @@
             'state' => $coDone ? ($coRejected ? 'rejected' : 'done') : ($cancelled || $rejected ? 'rejected' : 'current'),
             'note' => ($coDone && !$coAt) ? 'Decision time not recorded (decided before the portal started recording it)' : null],
         ['key' => 'employer', 'title' => $employeeDeclined ? 'Employee declined the restructure (ESS)' : 'Employer approval (ESS)'.($essRejected ? ' – rejected' : ''),
-            'who' => $employeeDeclined ? 'Employee via ESS' : 'Employer / HR via ESS', 'at' => $employerAt,
-            'state' => $employerDone ? 'done' : ($essRejected || ($cancelled && $coDone) ? 'rejected' : ($coDone && !$coRejected ? 'current' : 'waiting')),
+            'who' => $employeeDeclined ? 'Employee via ESS' : 'Employer / HR via ESS', 'at' => $cancelled ? null : $employerAt,
+            'state' => $employerDone ? 'done' : ($essRejected ? 'rejected' : ($coDone && !$coRejected && !$cancelled ? 'current' : 'waiting')),
             'note' => $essRejected ? 'Reason: '.($essReason ?: 'not saved (rejected before the portal recorded ESS reasons)').(!$employerAt ? ' · Time not recorded' : '')
                 : (($employerDone && !$employerAt) ? 'Approval time not recorded' : null)],
         ['key' => 'ca',       'title' => $isRestructure ? 'Credit Admin – restructure initiation' : 'Credit Admin – disbursement initiation',
@@ -94,6 +99,12 @@
             'state' => in_array($tx, ['disbursed', 'posted to cbs', 'restructured']) || $disbursedAt ? 'done' : ($copDone ? 'current' : 'waiting'),
             'note' => (in_array($tx, ['disbursed', 'posted to cbs']) && !$disbursedAt) ? 'Time not recorded' : null],
     ];
+    if ($cancelled) {
+        $cancelStep = ['key' => 'cancelled', 'title' => 'Cancelled by employee (ESS)', 'who' => 'Employee via ESS', 'at' => $cancelledAt,
+            'state' => 'rejected', 'note' => 'Reason: '.($cancelReason ?: 'not given').(!$cancelledAt ? ' · Time not recorded' : '')];
+        $at = $coDone ? 3 : 2; // after the Credit Officer step if the officer had decided, otherwise before it
+        array_splice($steps, $at, 0, [$cancelStep]);
+    }
     // Takeover (MCB = FSP2): after disbursement, staff upload the proof of payment to FSP1 and the gateway notifies ESS
     $isTakeover = $vehicle->LOAN_TYPE === 'TAKEOVER';
     $tkProof = $isTakeover ? \App\Models\PAYMENT::forLoan($vehicle) : null;
@@ -218,7 +229,9 @@
     </div>
     <div class="lp-tags">
       <span class="lp-chip">{{ ucwords(strtolower(str_replace('_', ' ', $vehicle->LOAN_TYPE ?: 'NEW_LOAN'))) }}</span>
-      @if($essRejected || $coRejected)
+      @if($cancelled)
+        <span class="lp-pill red" title="Transaction status {{ $vehicle->TRANSACTION_STATUS }} · Loan status {{ $vehicle->LOAN_STATUS }}">Cancelled by employee (ESS)</span>
+      @elseif($essRejected || $coRejected)
         <span class="lp-pill red" title="Transaction status {{ $vehicle->TRANSACTION_STATUS }} · Loan status {{ $vehicle->LOAN_STATUS }}">{{ $coRejected ? 'Rejected by Credit Officer' : ($employeeDeclined ? 'Declined by employee (ESS)' : 'Rejected by employer (ESS)') }}</span>
       @else
       <span class="lp-pill {{ $pill($vehicle->TRANSACTION_STATUS) }}" title="Transaction status">{{ $v($vehicle->TRANSACTION_STATUS) }}</span>
@@ -625,7 +638,7 @@
   <div class="lp-card-b">
                     <div class="row">
 
-                @if($vehicle->TRANSACTION_STATUS === 'Pending')
+                @if($vehicle->TRANSACTION_STATUS === 'Pending' && !$cancelled)
                 @if(Auth::user()->role == 'Credit Officer')
                 <div class="row">  
                         <div class="col-lg-6">
@@ -644,10 +657,10 @@
                 @endif
                     @endif
          
-                        @if($vehicle->TRANSACTION_STATUS === 'Cancelled')
+                        @if($cancelled)
                             <div class="alert alert-danger outline alert-dismissible fade show" role="alert">
                                 <i class="icofont icofont-minus-circle"></i>
-                                    This Request Has been Canceled
+                                    Cancelled by the employee on ESS{{ $cancelledAt ? ' on '.$cancelledAt->format('d M Y, H:i') : '' }}. Reason: <b>{{ $cancelReason ?: 'not given' }}</b>. No further action is needed.
                                 <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close" data-bs-original-title="" title=""></button>
                                 </div>
                         @endif   

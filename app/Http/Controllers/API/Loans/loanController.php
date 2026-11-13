@@ -17,6 +17,8 @@ use App\Models\DisburmentApprovalStage;
 use App\Models\LOAN;
 use App\Models\LOANAPPLICATION;
 use App\Models\LoanDeduction;
+use App\Models\PayrollBatch;
+use App\Models\PayrollDeduction;
 use App\Models\TakeoverBalanceRequest;
 use App\Models\PAYMENT;
 use App\Models\PAYMENTADVICE;
@@ -890,6 +892,46 @@ class loanController extends Controller
      * Deduction stops received from ESS (DEDUCTION_STOP_NOTIFICATION). Filter: pending (not reviewed), reviewed,
      * notfound (loan number unknown to MCB) or all.
      */
+    /** Monthly payroll deductions received from ESS (FSP_MONTHLY_DEDUCTIONS), by payroll date. */
+    public function getPayrollDeductions(Request $request)
+    {
+        if (!PayrollDeduction::tableReady()) {
+            return redirect()->route('home')->with('success', '<b>NOT AVAILABLE</b>, the ESS gateway has not received any payroll yet.');
+        }
+        $user = Auth::user();
+        $dates = PayrollDeduction::visibleTo($user)->whereNotNull('CHECK_DATE')->distinct()->orderByDesc('CHECK_DATE')->limit(36)->pluck('CHECK_DATE');
+        $payroll = (string) $request->query('payroll', '');
+        if ($payroll !== 'all' && !$dates->contains($payroll)) {
+            $payroll = (string) ($dates->first() ?? 'all');
+        }
+        $stopOnly = $request->boolean('stop');
+        $search = trim((string) $request->query('q', ''));
+        $perPage = in_array((int) $request->query('per_page'), [15, 25, 50, 100]) ? (int) $request->query('per_page') : 25;
+
+        $base = fn () => PayrollDeduction::visibleTo($user)->when($payroll !== 'all', fn ($q) => $q->where('CHECK_DATE', $payroll));
+        $summary = [
+            'records'  => $base()->count(),
+            'deducted' => (float) $base()->sum('DEDUCTION_AMOUNT'),
+            'balance'  => (float) $base()->sum('BALANCE_AMOUNT'),
+            'stop'     => $base()->where('HAS_STOP_PAY', 1)->count(),
+        ];
+
+        $query = $base()->with('loan')
+            ->when($stopOnly, fn ($q) => $q->where('HAS_STOP_PAY', 1))
+            ->when($search !== '', fn ($q) => $q->where(function ($w) use ($search) {
+                $w->where('CHECK_NUMBER', 'like', "%$search%")->orWhere('LOAN_ID', 'like', "%$search%")
+                  ->orWhere('FIRST_DATE', 'like', "%$search%")->orWhere('LAST_NAME', 'like', "%$search%")
+                  ->orWhere('VOTE_NAME', 'like', "%$search%");
+            }));
+        $deductions = $query->orderByDesc('CHECK_DATE')->orderByDesc('ID')->paginate($perPage)->withQueryString();
+
+        $batches = PayrollBatch::withCount('deductions')
+            ->when($payroll !== 'all', fn ($q) => $q->where('BATCH_PAYMENT_DATE', $payroll))
+            ->orderByDesc('ID')->limit(20)->get();
+
+        return view('admin.deductions.payroll', compact('deductions', 'dates', 'payroll', 'stopOnly', 'search', 'perPage', 'summary', 'batches'));
+    }
+
     public function getStoppedDeductions(Request $request)
     {
         if (!LoanDeduction::tableReady()) {

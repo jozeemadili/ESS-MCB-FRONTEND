@@ -54,6 +54,11 @@
                           <p>@livewire('components.vehicle.details', ['vehicle' => $vehicle, 'approval_datils' => $approval_datils])</p>
                         </div>
 
+                        {{-- Repayments: every payroll deduction ESS sent for this employee (all their loans) --}}
+                        <div class="tab-pane fade" id="policies" role="tabpanel" aria-labelledby="contact-top-tab">
+                          @include('admin.properties.partials.repayments', ['vehicle' => $vehicle])
+                        </div>
+
                        
 
                       </div>

@@ -73,6 +73,7 @@
         </select>
         <input type="text" name="q" value="{{ $search }}" placeholder="Check no., loan no., name or vote">
         <button class="btn btn-primary sd-btn" type="submit"><i class="fa fa-search"></i></button>
+        <a class="btn btn-success sd-btn" href="{{ route('deductions-payroll-export', array_filter(['payroll' => $payroll, 'stop' => $stopOnly ? 1 : null, 'q' => $search !== '' ? $search : null])) }}"><i class="fa fa-file-excel-o"></i> Export Excel</a>
       </form>
     </div>
 

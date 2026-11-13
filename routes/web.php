@@ -61,6 +61,7 @@ Route::group(['prefix' => 'v1/','middleware' => ['auth']], function()
     Route::post('loans/restructuring/propose', [loanController::class, 'proposeRestructure'])->name('loans-restructuring-propose');
     Route::get('loans/restructuring/propose/{id}', [loanController::class, 'restructureCalculator'])->name('loans-restructuring-calculator');
     Route::get('loans/deductions/payroll', [loanController::class, 'getPayrollDeductions'])->name('deductions-payroll');
+    Route::get('loans/deductions/payroll/export', [loanController::class, 'exportPayrollDeductions'])->name('deductions-payroll-export');
     Route::get('loans/deductions/stopped', [loanController::class, 'getStoppedDeductions'])->name('deductions-stopped');
     Route::post('loans/deductions/stopped/review', [loanController::class, 'reviewStoppedDeduction'])->name('deductions-stopped-review');
     Route::post('properties/staff/update/profile', [loanController::class, 'updateLoanStatus'])->name('update-staff');

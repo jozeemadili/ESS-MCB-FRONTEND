@@ -42,6 +42,18 @@ class PayrollDeduction extends Model
         return $q;
     }
 
+    /** Every payroll deduction of one employee: rows with that check number or for any of the employee's loans. */
+    public static function forEmployee($user, $checkNumber)
+    {
+        $loanIds = LOANAPPLICATION::where('CHECK_NUMBER', $checkNumber)->pluck('ID');
+        return self::visibleTo($user)->where(function ($q) use ($checkNumber, $loanIds) {
+            $q->where('CHECK_NUMBER', $checkNumber);
+            if ($loanIds->isNotEmpty()) {
+                $q->orWhereIn('LOAN_APPLICATION_ID', $loanIds);
+            }
+        });
+    }
+
     public static function tableReady(): bool
     {
         static $ready = null;

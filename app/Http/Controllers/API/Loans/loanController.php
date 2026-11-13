@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API\Loans;
 use App\Exports\AcceptedExport;
+use App\Exports\PayrollDeductionsExport;
 use App\Exports\ApprovedCaExport;
 use App\Exports\ApprovedCmExport;
 use App\Exports\ApprovedExport;
@@ -930,6 +931,33 @@ class loanController extends Controller
             ->orderByDesc('ID')->limit(20)->get();
 
         return view('admin.deductions.payroll', compact('deductions', 'dates', 'payroll', 'stopOnly', 'search', 'perPage', 'summary', 'batches'));
+    }
+
+    /**
+     * Excel export of payroll deductions. Same filters as the Payroll Deductions page (payroll, stop, q); with
+     * ?check=<check number> it exports every payroll deduction of that employee (all their loans, all payrolls).
+     */
+    public function exportPayrollDeductions(Request $request)
+    {
+        abort_unless(PayrollDeduction::tableReady(), 404);
+        $check = trim((string) $request->query('check', ''));
+        if ($check !== '') {
+            $rows = PayrollDeduction::forEmployee(Auth::user(), $check)->with('loan')->orderByDesc('CHECK_DATE')->orderByDesc('ID')->get();
+            return Excel::download(new PayrollDeductionsExport($rows, 'Payroll deductions · check no. '.$check), 'Payroll-Deductions-'.$check.'.xlsx');
+        }
+        $payroll = (string) $request->query('payroll', 'all');
+        $search = trim((string) $request->query('q', ''));
+        $rows = PayrollDeduction::visibleTo(Auth::user())->with('loan')
+            ->when($payroll !== 'all' && $payroll !== '', fn ($q) => $q->where('CHECK_DATE', $payroll))
+            ->when($request->boolean('stop'), fn ($q) => $q->where('HAS_STOP_PAY', 1))
+            ->when($search !== '', fn ($q) => $q->where(function ($w) use ($search) {
+                $w->where('CHECK_NUMBER', 'like', "%$search%")->orWhere('LOAN_ID', 'like', "%$search%")
+                  ->orWhere('FIRST_DATE', 'like', "%$search%")->orWhere('LAST_NAME', 'like', "%$search%")
+                  ->orWhere('VOTE_NAME', 'like', "%$search%");
+            }))
+            ->orderByDesc('CHECK_DATE')->orderByDesc('ID')->get();
+        $label = $payroll === 'all' || $payroll === '' ? 'All payrolls' : 'Payroll '.$payroll;
+        return Excel::download(new PayrollDeductionsExport($rows, 'Payroll deductions · '.$label), 'Payroll-Deductions-'.($payroll === '' ? 'all' : $payroll).'.xlsx');
     }
 
     public function getStoppedDeductions(Request $request)

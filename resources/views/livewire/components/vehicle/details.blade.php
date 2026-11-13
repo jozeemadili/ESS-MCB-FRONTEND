@@ -419,37 +419,6 @@
   </div>
 </div>
 
-{{-- ===== Payroll deductions from ESS (FSP_MONTHLY_DEDUCTIONS) ===== --}}
-@php
-    $payrollRows = \App\Models\PayrollDeduction::tableReady()
-        ? \App\Models\PayrollDeduction::where('LOAN_APPLICATION_ID', $vehicle->ID)->orderByDesc('CHECK_DATE')->orderByDesc('ID')->limit(24)->get()
-        : collect();
-@endphp
-@if($payrollRows->isNotEmpty())
-<div class="lp-card">
-  <div class="lp-card-h">
-    <h6><i class="fa fa-calendar-check-o"></i> Payroll deductions (ESS)</h6>
-    <small>{{ $payrollRows->count() }} payroll{{ $payrollRows->count() == 1 ? '' : 's' }} · total deducted TZS {{ $money($payrollRows->sum('DEDUCTION_AMOUNT')) }} · latest balance TZS {{ $money($payrollRows->first()->BALANCE_AMOUNT) }}</small>
-  </div>
-  <div class="lp-card-b" style="padding:0;overflow:auto">
-    <table class="table mb-0" style="font-size:12.5px">
-      <thead><tr style="background:#f6f8fc"><th>Payroll date</th><th class="text-end">Deducted</th><th class="text-end">Balance left</th><th>Stop pay</th><th>Received</th></tr></thead>
-      <tbody>
-      @foreach($payrollRows as $p)
-        <tr>
-          <td><b>{{ $dt($p->CHECK_DATE) }}</b></td>
-          <td class="text-end" style="font-variant-numeric:tabular-nums">{{ $money($p->DEDUCTION_AMOUNT) }}</td>
-          <td class="text-end" style="font-variant-numeric:tabular-nums">{{ $money($p->BALANCE_AMOUNT) }}</td>
-          <td>@if($p->HAS_STOP_PAY)<span class="lp-pill soft red">Stop pay</span> <small style="color:#6b7280">{{ $p->HAS_STOP_PAY_REASON }}</small>@else<span style="color:#6b7280">No</span>@endif</td>
-          <td style="color:#6b7280">{{ $dt($p->REQUEST_DATE, true) }}</td>
-        </tr>
-      @endforeach
-      </tbody>
-    </table>
-  </div>
-</div>
-@endif
-
 {{-- ===== Details ===== --}}
 <div class="row">
   <div class="col-xl-6">

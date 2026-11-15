@@ -186,7 +186,7 @@
                 </form>
 
                 <div class="mcb-secure"><i class="icofont icofont-lock"></i> Secure staff access &middot; activity is logged</div>
-                <div class="mcb-env"><a href="#" target="_blank">UAT test Take over &amp; Restucturing. Mwalimu Cormmecial Bank PLC</a></div>
+                <div class="mcb-env"><a href="#" target="_blank">Mwalimu Cormmecial Bank PLC</a></div>
             </div>
         </div>
     </section>
